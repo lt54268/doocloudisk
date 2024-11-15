@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -10,6 +11,11 @@ import (
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 )
 
+type UserResp struct {
+	Ret  int    `json:"ret"`
+	Msg  string `json:"msg"`
+	User User   `json:"data"`
+}
 type User struct {
 	Userid     int      `json:"userid"`
 	Identity   []string `json:"identity"`   // Assuming identity is a slice of strings
@@ -27,10 +33,10 @@ type User struct {
 	CreatedIp  string   `json:"created_ip"`
 }
 
-func GetUserID(token []byte) (user_id int, err error) {
+func GetUserInfo(token []byte) (*User, error) {
 	c, err := client.NewClient()
 	if err != nil {
-		return
+		return nil, err
 	}
 	req := &protocol.Request{}
 	res := &protocol.Response{}
@@ -43,8 +49,11 @@ func GetUserID(token []byte) (user_id int, err error) {
 	req.SetRequestURI(fmt.Sprintf("http://%s/api/users/info", ip))
 	err = c.Do(context.Background(), req, res)
 	if err != nil {
-		return
+		return nil, err
 	}
-	fmt.Printf("%v\n", string(res.Body()))
-	return 1, nil
+	u := new(UserResp)
+	err = json.Unmarshal(res.Body(), u)
+
+	// fmt.Printf("%v\n", string(res.Body()))
+	return &u.User, nil
 }

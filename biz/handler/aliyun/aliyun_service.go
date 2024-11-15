@@ -21,8 +21,8 @@ func Upload(ctx context.Context, c *app.RequestContext) {
 		c.String(consts.StatusBadRequest, err.Error())
 		return
 	}
-	user_id, err := service.GetUserID(c.GetHeader("Token"))
-	service.Upload(user_id, 1, "test", false)
+	user, err := service.GetUserInfo(c.GetHeader("Token"))
+	service.Upload(user, 1, "test", false)
 	resp := new(aliyun.UploadResp)
 
 	c.JSON(consts.StatusOK, resp)

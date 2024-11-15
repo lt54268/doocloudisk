@@ -17,7 +17,7 @@
 package main
 
 import (
-	"github.com/cloudisk/biz/dal"
+	_ "github.com/cloudisk/biz/dal"
 	"github.com/cloudisk/biz/dal/mysql"
 	"gorm.io/gen"
 )
@@ -28,7 +28,6 @@ func main() {
 		ModelPkgPath: "../biz/model/gorm_gen",
 		Mode:         gen.WithoutContext | gen.WithDefaultQuery | gen.WithQueryInterface, // generate mode
 	})
-	dal.Init()
 	// gormdb, _ := gorm.Open(mysql.Open("root:@(127.0.0.1:3306)/demo?charset=utf8mb4&parseTime=True&loc=Local"))
 	// reuse your gorm db
 	g.UseDB(mysql.DB)
@@ -38,6 +37,7 @@ func main() {
 		// Generate struct `User` based on table `users`
 		// g.GenerateModel("pre_files"),
 		g.GenerateModelAs("pre_files", "File"),
+		g.GenerateModelAs("pre_file_users", "File_User"),
 	)
 
 	// Generate the code
