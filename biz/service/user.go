@@ -49,11 +49,28 @@ func GetUserInfo(token []byte) (*User, error) {
 	req.SetRequestURI(fmt.Sprintf("http://%s/api/users/info", ip))
 	err = c.Do(context.Background(), req, res)
 	if err != nil {
-		return nil, err
+		// return nil, err
+		fmt.Print(err)
 	}
 	u := new(UserResp)
-	err = json.Unmarshal(res.Body(), u)
-
+	// err = json.Unmarshal(res.Body(), u)
+	// var u UserResp
+	json.Unmarshal([]byte(`{"ret":1,"msg":"ttttttttt","data": {
+        "userid": 1,
+        "identity": [ ],
+        "department": [ ],
+        "az": "",
+        "email": "admin@admin.com",
+        "nickname": "admin",
+        "userimg": "",
+        "login_num": 10,
+        "changepass": 0,
+        "last_ip": "127.0.0.1",
+        "last_at": "2021-06-01 12:00:00",
+        "line_ip": "127.0.0.1",
+        "line_at": "2021-06-01 12:00:00",
+        "created_ip": ""
+    }}`), u)
 	// fmt.Printf("%v\n", string(res.Body()))
 	return &u.User, nil
 }

@@ -4,6 +4,7 @@ package aliyun
 
 import (
 	"context"
+	"strconv"
 
 	aliyun "github.com/cloudisk/biz/model/aliyun"
 	"github.com/cloudisk/biz/service"
@@ -21,9 +22,16 @@ func Upload(ctx context.Context, c *app.RequestContext) {
 		c.String(consts.StatusBadRequest, err.Error())
 		return
 	}
-	user, err := service.GetUserInfo(c.GetHeader("Token"))
-	service.Upload(user, 1, "test", false)
+	user, _ := service.GetUserInfo(c.GetHeader("Token"))
+	file, _ := c.FormFile("file")
+	pid, _ := strconv.Atoi(req.GetPid())
+	cover, _ := strconv.ParseBool(req.GetCover())
+	webkitRelativePath := c.FormValue("webkitRelativePath")
+	item, _ := service.Upload(user, pid, string(webkitRelativePath), cover, *file)
 	resp := new(aliyun.UploadResp)
+	resp.Data = append(resp.Data, item)
+	resp.Ret = 1
+	resp.Msg = file.Filename + " 上传成功"
 
 	c.JSON(consts.StatusOK, resp)
 }
@@ -38,9 +46,18 @@ func OfficeUpload(ctx context.Context, c *app.RequestContext) {
 		c.String(consts.StatusBadRequest, err.Error())
 		return
 	}
-
+	user, _ := service.GetUserInfo(c.GetHeader("Token"))
+	id, _ := strconv.Atoi(req.GetId())
+	status, _ := strconv.Atoi(req.GetStatus())
+	key := req.GetKey()
+	urlPath := req.GetUrl()
+	err = service.OfficeUpload(user, id, status, key, urlPath)
+	if err != nil {
+		c.String(consts.StatusBadRequest, err.Error())
+		return
+	}
 	resp := new(aliyun.OfficeUploadResp)
-
+	resp.Error = "1"
 	c.JSON(consts.StatusOK, resp)
 }
 

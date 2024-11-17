@@ -16,39 +16,44 @@ import (
 )
 
 var (
-	Q         = new(Query)
-	File      *file
-	File_User *file_User
+	Q           = new(Query)
+	File        *file
+	FileContent *fileContent
+	File_User   *file_User
 )
 
 func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	*Q = *Use(db, opts...)
 	File = &Q.File
+	FileContent = &Q.FileContent
 	File_User = &Q.File_User
 }
 
 func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 	return &Query{
-		db:        db,
-		File:      newFile(db, opts...),
-		File_User: newFile_User(db, opts...),
+		db:          db,
+		File:        newFile(db, opts...),
+		FileContent: newFileContent(db, opts...),
+		File_User:   newFile_User(db, opts...),
 	}
 }
 
 type Query struct {
 	db *gorm.DB
 
-	File      file
-	File_User file_User
+	File        file
+	FileContent fileContent
+	File_User   file_User
 }
 
 func (q *Query) Available() bool { return q.db != nil }
 
 func (q *Query) clone(db *gorm.DB) *Query {
 	return &Query{
-		db:        db,
-		File:      q.File.clone(db),
-		File_User: q.File_User.clone(db),
+		db:          db,
+		File:        q.File.clone(db),
+		FileContent: q.FileContent.clone(db),
+		File_User:   q.File_User.clone(db),
 	}
 }
 
@@ -62,21 +67,24 @@ func (q *Query) WriteDB() *Query {
 
 func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 	return &Query{
-		db:        db,
-		File:      q.File.replaceDB(db),
-		File_User: q.File_User.replaceDB(db),
+		db:          db,
+		File:        q.File.replaceDB(db),
+		FileContent: q.FileContent.replaceDB(db),
+		File_User:   q.File_User.replaceDB(db),
 	}
 }
 
 type queryCtx struct {
-	File      IFileDo
-	File_User IFile_UserDo
+	File        IFileDo
+	FileContent IFileContentDo
+	File_User   IFile_UserDo
 }
 
 func (q *Query) WithContext(ctx context.Context) *queryCtx {
 	return &queryCtx{
-		File:      q.File.WithContext(ctx),
-		File_User: q.File_User.WithContext(ctx),
+		File:        q.File.WithContext(ctx),
+		FileContent: q.FileContent.WithContext(ctx),
+		File_User:   q.File_User.WithContext(ctx),
 	}
 }
 

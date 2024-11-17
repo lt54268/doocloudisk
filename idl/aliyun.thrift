@@ -38,7 +38,7 @@ struct UploadReq {
 }
 
 struct UploadResp {
-    1: string Ret;
+    1: i8 Ret;
     2: string Msg;
     3: list<common.File> Data;
 }
@@ -60,7 +60,7 @@ struct SaveReq {
 }
 
 struct SaveResp {
-    1: string Ret;
+    1: i8 Ret;
     2: string Msg;
     3: common.FileContent Data;
 }

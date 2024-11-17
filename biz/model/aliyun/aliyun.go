@@ -273,7 +273,7 @@ func (p *UploadReq) String() string {
 }
 
 type UploadResp struct {
-	Ret  string         `thrift:"Ret,1" form:"Ret" json:"Ret" query:"Ret"`
+	Ret  int8           `thrift:"Ret,1" form:"Ret" json:"Ret" query:"Ret"`
 	Msg  string         `thrift:"Msg,2" form:"Msg" json:"Msg" query:"Msg"`
 	Data []*common.File `thrift:"Data,3" form:"Data" json:"Data" query:"Data"`
 }
@@ -285,7 +285,7 @@ func NewUploadResp() *UploadResp {
 func (p *UploadResp) InitDefault() {
 }
 
-func (p *UploadResp) GetRet() (v string) {
+func (p *UploadResp) GetRet() (v int8) {
 	return p.Ret
 }
 
@@ -323,7 +323,7 @@ func (p *UploadResp) Read(iprot thrift.TProtocol) (err error) {
 
 		switch fieldId {
 		case 1:
-			if fieldTypeId == thrift.STRING {
+			if fieldTypeId == thrift.BYTE {
 				if err = p.ReadField1(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -377,8 +377,8 @@ ReadStructEndError:
 
 func (p *UploadResp) ReadField1(iprot thrift.TProtocol) error {
 
-	var _field string
-	if v, err := iprot.ReadString(); err != nil {
+	var _field int8
+	if v, err := iprot.ReadByte(); err != nil {
 		return err
 	} else {
 		_field = v
@@ -459,10 +459,10 @@ WriteStructEndError:
 }
 
 func (p *UploadResp) writeField1(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("Ret", thrift.STRING, 1); err != nil {
+	if err = oprot.WriteFieldBegin("Ret", thrift.BYTE, 1); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteString(p.Ret); err != nil {
+	if err := oprot.WriteByte(p.Ret); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {
@@ -1133,7 +1133,7 @@ func (p *SaveReq) String() string {
 }
 
 type SaveResp struct {
-	Ret  string              `thrift:"Ret,1" form:"Ret" json:"Ret" query:"Ret"`
+	Ret  int8                `thrift:"Ret,1" form:"Ret" json:"Ret" query:"Ret"`
 	Msg  string              `thrift:"Msg,2" form:"Msg" json:"Msg" query:"Msg"`
 	Data *common.FileContent `thrift:"Data,3" form:"Data" json:"Data" query:"Data"`
 }
@@ -1145,7 +1145,7 @@ func NewSaveResp() *SaveResp {
 func (p *SaveResp) InitDefault() {
 }
 
-func (p *SaveResp) GetRet() (v string) {
+func (p *SaveResp) GetRet() (v int8) {
 	return p.Ret
 }
 
@@ -1192,7 +1192,7 @@ func (p *SaveResp) Read(iprot thrift.TProtocol) (err error) {
 
 		switch fieldId {
 		case 1:
-			if fieldTypeId == thrift.STRING {
+			if fieldTypeId == thrift.BYTE {
 				if err = p.ReadField1(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -1246,8 +1246,8 @@ ReadStructEndError:
 
 func (p *SaveResp) ReadField1(iprot thrift.TProtocol) error {
 
-	var _field string
-	if v, err := iprot.ReadString(); err != nil {
+	var _field int8
+	if v, err := iprot.ReadByte(); err != nil {
 		return err
 	} else {
 		_field = v
@@ -1313,10 +1313,10 @@ WriteStructEndError:
 }
 
 func (p *SaveResp) writeField1(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("Ret", thrift.STRING, 1); err != nil {
+	if err = oprot.WriteFieldBegin("Ret", thrift.BYTE, 1); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteString(p.Ret); err != nil {
+	if err := oprot.WriteByte(p.Ret); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {

@@ -38,6 +38,7 @@ func main() {
 		// g.GenerateModel("pre_files"),
 		g.GenerateModelAs("pre_files", "File"),
 		g.GenerateModelAs("pre_file_users", "File_User"),
+		g.GenerateModelAs("pre_file_contents", "FileContent"),
 	)
 
 	// Generate the code

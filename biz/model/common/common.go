@@ -8,23 +8,23 @@ import (
 )
 
 type File struct {
-	ID        int32  `thrift:"id,1" form:"id" json:"id" query:"id"`
-	Pid       int32  `thrift:"pid,2" form:"pid" json:"pid" query:"pid"`
+	ID        int64  `thrift:"id,1" form:"id" json:"id" query:"id"`
+	Pid       int64  `thrift:"pid,2" form:"pid" json:"pid" query:"pid"`
 	Pids      string `thrift:"pids,3" form:"pids" json:"pids" query:"pids"`
-	Cid       int32  `thrift:"cid,4" form:"cid" json:"cid" query:"cid"`
+	Cid       int64  `thrift:"cid,4" form:"cid" json:"cid" query:"cid"`
 	Name      string `thrift:"name,5" form:"name" json:"name" query:"name"`
 	Type      string `thrift:"type,6" form:"type" json:"type" query:"type"`
 	Ext       string `thrift:"ext,7" form:"ext" json:"ext" query:"ext"`
-	Size      int32  `thrift:"size,8" form:"size" json:"size" query:"size"`
-	Userid    int32  `thrift:"userid,9" form:"userid" json:"userid" query:"userid"`
+	Size      int64  `thrift:"size,8" form:"size" json:"size" query:"size"`
+	Userid    int64  `thrift:"userid,9" form:"userid" json:"userid" query:"userid"`
 	Share     int32  `thrift:"share,10" form:"share" json:"share" query:"share"`
-	Pshare    int32  `thrift:"pshare,11" form:"pshare" json:"pshare" query:"pshare"`
-	CreatedID int32  `thrift:"created_id,12" form:"created_id" json:"created_id" query:"created_id"`
+	Pshare    int64  `thrift:"pshare,11" form:"pshare" json:"pshare" query:"pshare"`
+	CreatedID int64  `thrift:"created_id,12" form:"created_id" json:"created_id" query:"created_id"`
 	CreatedAt string `thrift:"created_at,13" form:"created_at" json:"created_at" query:"created_at"`
 	UpdatedAt string `thrift:"updated_at,14" form:"updated_at" json:"updated_at" query:"updated_at"`
-	DeletedAt int32  `thrift:"deleted_at,15" form:"deleted_at" json:"deleted_at" query:"deleted_at"`
+	DeletedAt int64  `thrift:"deleted_at,15" form:"deleted_at" json:"deleted_at" query:"deleted_at"`
 	FullName  string `thrift:"full_name,16" form:"full_name" json:"full_name" query:"full_name"`
-	Overwrite int32  `thrift:"overwrite,17" form:"overwrite" json:"overwrite" query:"overwrite"`
+	Overwrite int64  `thrift:"overwrite,17" form:"overwrite" json:"overwrite" query:"overwrite"`
 }
 
 func NewFile() *File {
@@ -34,11 +34,11 @@ func NewFile() *File {
 func (p *File) InitDefault() {
 }
 
-func (p *File) GetID() (v int32) {
+func (p *File) GetID() (v int64) {
 	return p.ID
 }
 
-func (p *File) GetPid() (v int32) {
+func (p *File) GetPid() (v int64) {
 	return p.Pid
 }
 
@@ -46,7 +46,7 @@ func (p *File) GetPids() (v string) {
 	return p.Pids
 }
 
-func (p *File) GetCid() (v int32) {
+func (p *File) GetCid() (v int64) {
 	return p.Cid
 }
 
@@ -62,11 +62,11 @@ func (p *File) GetExt() (v string) {
 	return p.Ext
 }
 
-func (p *File) GetSize() (v int32) {
+func (p *File) GetSize() (v int64) {
 	return p.Size
 }
 
-func (p *File) GetUserid() (v int32) {
+func (p *File) GetUserid() (v int64) {
 	return p.Userid
 }
 
@@ -74,11 +74,11 @@ func (p *File) GetShare() (v int32) {
 	return p.Share
 }
 
-func (p *File) GetPshare() (v int32) {
+func (p *File) GetPshare() (v int64) {
 	return p.Pshare
 }
 
-func (p *File) GetCreatedID() (v int32) {
+func (p *File) GetCreatedID() (v int64) {
 	return p.CreatedID
 }
 
@@ -90,7 +90,7 @@ func (p *File) GetUpdatedAt() (v string) {
 	return p.UpdatedAt
 }
 
-func (p *File) GetDeletedAt() (v int32) {
+func (p *File) GetDeletedAt() (v int64) {
 	return p.DeletedAt
 }
 
@@ -98,7 +98,7 @@ func (p *File) GetFullName() (v string) {
 	return p.FullName
 }
 
-func (p *File) GetOverwrite() (v int32) {
+func (p *File) GetOverwrite() (v int64) {
 	return p.Overwrite
 }
 
@@ -142,7 +142,7 @@ func (p *File) Read(iprot thrift.TProtocol) (err error) {
 
 		switch fieldId {
 		case 1:
-			if fieldTypeId == thrift.I32 {
+			if fieldTypeId == thrift.I64 {
 				if err = p.ReadField1(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -150,7 +150,7 @@ func (p *File) Read(iprot thrift.TProtocol) (err error) {
 				goto SkipFieldError
 			}
 		case 2:
-			if fieldTypeId == thrift.I32 {
+			if fieldTypeId == thrift.I64 {
 				if err = p.ReadField2(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -166,7 +166,7 @@ func (p *File) Read(iprot thrift.TProtocol) (err error) {
 				goto SkipFieldError
 			}
 		case 4:
-			if fieldTypeId == thrift.I32 {
+			if fieldTypeId == thrift.I64 {
 				if err = p.ReadField4(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -198,7 +198,7 @@ func (p *File) Read(iprot thrift.TProtocol) (err error) {
 				goto SkipFieldError
 			}
 		case 8:
-			if fieldTypeId == thrift.I32 {
+			if fieldTypeId == thrift.I64 {
 				if err = p.ReadField8(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -206,7 +206,7 @@ func (p *File) Read(iprot thrift.TProtocol) (err error) {
 				goto SkipFieldError
 			}
 		case 9:
-			if fieldTypeId == thrift.I32 {
+			if fieldTypeId == thrift.I64 {
 				if err = p.ReadField9(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -222,7 +222,7 @@ func (p *File) Read(iprot thrift.TProtocol) (err error) {
 				goto SkipFieldError
 			}
 		case 11:
-			if fieldTypeId == thrift.I32 {
+			if fieldTypeId == thrift.I64 {
 				if err = p.ReadField11(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -230,7 +230,7 @@ func (p *File) Read(iprot thrift.TProtocol) (err error) {
 				goto SkipFieldError
 			}
 		case 12:
-			if fieldTypeId == thrift.I32 {
+			if fieldTypeId == thrift.I64 {
 				if err = p.ReadField12(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -254,7 +254,7 @@ func (p *File) Read(iprot thrift.TProtocol) (err error) {
 				goto SkipFieldError
 			}
 		case 15:
-			if fieldTypeId == thrift.I32 {
+			if fieldTypeId == thrift.I64 {
 				if err = p.ReadField15(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -270,7 +270,7 @@ func (p *File) Read(iprot thrift.TProtocol) (err error) {
 				goto SkipFieldError
 			}
 		case 17:
-			if fieldTypeId == thrift.I32 {
+			if fieldTypeId == thrift.I64 {
 				if err = p.ReadField17(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -308,8 +308,8 @@ ReadStructEndError:
 
 func (p *File) ReadField1(iprot thrift.TProtocol) error {
 
-	var _field int32
-	if v, err := iprot.ReadI32(); err != nil {
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
 		return err
 	} else {
 		_field = v
@@ -319,8 +319,8 @@ func (p *File) ReadField1(iprot thrift.TProtocol) error {
 }
 func (p *File) ReadField2(iprot thrift.TProtocol) error {
 
-	var _field int32
-	if v, err := iprot.ReadI32(); err != nil {
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
 		return err
 	} else {
 		_field = v
@@ -341,8 +341,8 @@ func (p *File) ReadField3(iprot thrift.TProtocol) error {
 }
 func (p *File) ReadField4(iprot thrift.TProtocol) error {
 
-	var _field int32
-	if v, err := iprot.ReadI32(); err != nil {
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
 		return err
 	} else {
 		_field = v
@@ -385,8 +385,8 @@ func (p *File) ReadField7(iprot thrift.TProtocol) error {
 }
 func (p *File) ReadField8(iprot thrift.TProtocol) error {
 
-	var _field int32
-	if v, err := iprot.ReadI32(); err != nil {
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
 		return err
 	} else {
 		_field = v
@@ -396,8 +396,8 @@ func (p *File) ReadField8(iprot thrift.TProtocol) error {
 }
 func (p *File) ReadField9(iprot thrift.TProtocol) error {
 
-	var _field int32
-	if v, err := iprot.ReadI32(); err != nil {
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
 		return err
 	} else {
 		_field = v
@@ -418,8 +418,8 @@ func (p *File) ReadField10(iprot thrift.TProtocol) error {
 }
 func (p *File) ReadField11(iprot thrift.TProtocol) error {
 
-	var _field int32
-	if v, err := iprot.ReadI32(); err != nil {
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
 		return err
 	} else {
 		_field = v
@@ -429,8 +429,8 @@ func (p *File) ReadField11(iprot thrift.TProtocol) error {
 }
 func (p *File) ReadField12(iprot thrift.TProtocol) error {
 
-	var _field int32
-	if v, err := iprot.ReadI32(); err != nil {
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
 		return err
 	} else {
 		_field = v
@@ -462,8 +462,8 @@ func (p *File) ReadField14(iprot thrift.TProtocol) error {
 }
 func (p *File) ReadField15(iprot thrift.TProtocol) error {
 
-	var _field int32
-	if v, err := iprot.ReadI32(); err != nil {
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
 		return err
 	} else {
 		_field = v
@@ -484,8 +484,8 @@ func (p *File) ReadField16(iprot thrift.TProtocol) error {
 }
 func (p *File) ReadField17(iprot thrift.TProtocol) error {
 
-	var _field int32
-	if v, err := iprot.ReadI32(); err != nil {
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
 		return err
 	} else {
 		_field = v
@@ -588,10 +588,10 @@ WriteStructEndError:
 }
 
 func (p *File) writeField1(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("id", thrift.I32, 1); err != nil {
+	if err = oprot.WriteFieldBegin("id", thrift.I64, 1); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteI32(p.ID); err != nil {
+	if err := oprot.WriteI64(p.ID); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {
@@ -605,10 +605,10 @@ WriteFieldEndError:
 }
 
 func (p *File) writeField2(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("pid", thrift.I32, 2); err != nil {
+	if err = oprot.WriteFieldBegin("pid", thrift.I64, 2); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteI32(p.Pid); err != nil {
+	if err := oprot.WriteI64(p.Pid); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {
@@ -639,10 +639,10 @@ WriteFieldEndError:
 }
 
 func (p *File) writeField4(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("cid", thrift.I32, 4); err != nil {
+	if err = oprot.WriteFieldBegin("cid", thrift.I64, 4); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteI32(p.Cid); err != nil {
+	if err := oprot.WriteI64(p.Cid); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {
@@ -707,10 +707,10 @@ WriteFieldEndError:
 }
 
 func (p *File) writeField8(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("size", thrift.I32, 8); err != nil {
+	if err = oprot.WriteFieldBegin("size", thrift.I64, 8); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteI32(p.Size); err != nil {
+	if err := oprot.WriteI64(p.Size); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {
@@ -724,10 +724,10 @@ WriteFieldEndError:
 }
 
 func (p *File) writeField9(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("userid", thrift.I32, 9); err != nil {
+	if err = oprot.WriteFieldBegin("userid", thrift.I64, 9); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteI32(p.Userid); err != nil {
+	if err := oprot.WriteI64(p.Userid); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {
@@ -758,10 +758,10 @@ WriteFieldEndError:
 }
 
 func (p *File) writeField11(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("pshare", thrift.I32, 11); err != nil {
+	if err = oprot.WriteFieldBegin("pshare", thrift.I64, 11); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteI32(p.Pshare); err != nil {
+	if err := oprot.WriteI64(p.Pshare); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {
@@ -775,10 +775,10 @@ WriteFieldEndError:
 }
 
 func (p *File) writeField12(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("created_id", thrift.I32, 12); err != nil {
+	if err = oprot.WriteFieldBegin("created_id", thrift.I64, 12); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteI32(p.CreatedID); err != nil {
+	if err := oprot.WriteI64(p.CreatedID); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {
@@ -826,10 +826,10 @@ WriteFieldEndError:
 }
 
 func (p *File) writeField15(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("deleted_at", thrift.I32, 15); err != nil {
+	if err = oprot.WriteFieldBegin("deleted_at", thrift.I64, 15); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteI32(p.DeletedAt); err != nil {
+	if err := oprot.WriteI64(p.DeletedAt); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {
@@ -860,10 +860,10 @@ WriteFieldEndError:
 }
 
 func (p *File) writeField17(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("overwrite", thrift.I32, 17); err != nil {
+	if err = oprot.WriteFieldBegin("overwrite", thrift.I64, 17); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteI32(p.Overwrite); err != nil {
+	if err := oprot.WriteI64(p.Overwrite); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {
@@ -885,14 +885,14 @@ func (p *File) String() string {
 }
 
 type FileContent struct {
-	Fid       int32  `thrift:"fid,1" form:"fid" json:"fid" query:"fid"`
+	Fid       int64  `thrift:"fid,1" form:"fid" json:"fid" query:"fid"`
 	Content   string `thrift:"content,2" form:"content" json:"content" query:"content"`
 	Text      string `thrift:"text,3" form:"text" json:"text" query:"text"`
-	Size      int32  `thrift:"size,4" form:"size" json:"size" query:"size"`
-	Userid    int32  `thrift:"userid,5" form:"userid" json:"userid" query:"userid"`
+	Size      int64  `thrift:"size,4" form:"size" json:"size" query:"size"`
+	Userid    int64  `thrift:"userid,5" form:"userid" json:"userid" query:"userid"`
 	UpdatedAt string `thrift:"updated_at,6" form:"updated_at" json:"updated_at" query:"updated_at"`
 	CreatedAt string `thrift:"created_at,7" form:"created_at" json:"created_at" query:"created_at"`
-	ID        int32  `thrift:"id,8" form:"id" json:"id" query:"id"`
+	ID        int64  `thrift:"id,8" form:"id" json:"id" query:"id"`
 }
 
 func NewFileContent() *FileContent {
@@ -902,7 +902,7 @@ func NewFileContent() *FileContent {
 func (p *FileContent) InitDefault() {
 }
 
-func (p *FileContent) GetFid() (v int32) {
+func (p *FileContent) GetFid() (v int64) {
 	return p.Fid
 }
 
@@ -914,11 +914,11 @@ func (p *FileContent) GetText() (v string) {
 	return p.Text
 }
 
-func (p *FileContent) GetSize() (v int32) {
+func (p *FileContent) GetSize() (v int64) {
 	return p.Size
 }
 
-func (p *FileContent) GetUserid() (v int32) {
+func (p *FileContent) GetUserid() (v int64) {
 	return p.Userid
 }
 
@@ -930,7 +930,7 @@ func (p *FileContent) GetCreatedAt() (v string) {
 	return p.CreatedAt
 }
 
-func (p *FileContent) GetID() (v int32) {
+func (p *FileContent) GetID() (v int64) {
 	return p.ID
 }
 
@@ -965,7 +965,7 @@ func (p *FileContent) Read(iprot thrift.TProtocol) (err error) {
 
 		switch fieldId {
 		case 1:
-			if fieldTypeId == thrift.I32 {
+			if fieldTypeId == thrift.I64 {
 				if err = p.ReadField1(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -989,7 +989,7 @@ func (p *FileContent) Read(iprot thrift.TProtocol) (err error) {
 				goto SkipFieldError
 			}
 		case 4:
-			if fieldTypeId == thrift.I32 {
+			if fieldTypeId == thrift.I64 {
 				if err = p.ReadField4(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -997,7 +997,7 @@ func (p *FileContent) Read(iprot thrift.TProtocol) (err error) {
 				goto SkipFieldError
 			}
 		case 5:
-			if fieldTypeId == thrift.I32 {
+			if fieldTypeId == thrift.I64 {
 				if err = p.ReadField5(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -1021,7 +1021,7 @@ func (p *FileContent) Read(iprot thrift.TProtocol) (err error) {
 				goto SkipFieldError
 			}
 		case 8:
-			if fieldTypeId == thrift.I32 {
+			if fieldTypeId == thrift.I64 {
 				if err = p.ReadField8(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -1059,8 +1059,8 @@ ReadStructEndError:
 
 func (p *FileContent) ReadField1(iprot thrift.TProtocol) error {
 
-	var _field int32
-	if v, err := iprot.ReadI32(); err != nil {
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
 		return err
 	} else {
 		_field = v
@@ -1092,8 +1092,8 @@ func (p *FileContent) ReadField3(iprot thrift.TProtocol) error {
 }
 func (p *FileContent) ReadField4(iprot thrift.TProtocol) error {
 
-	var _field int32
-	if v, err := iprot.ReadI32(); err != nil {
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
 		return err
 	} else {
 		_field = v
@@ -1103,8 +1103,8 @@ func (p *FileContent) ReadField4(iprot thrift.TProtocol) error {
 }
 func (p *FileContent) ReadField5(iprot thrift.TProtocol) error {
 
-	var _field int32
-	if v, err := iprot.ReadI32(); err != nil {
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
 		return err
 	} else {
 		_field = v
@@ -1136,8 +1136,8 @@ func (p *FileContent) ReadField7(iprot thrift.TProtocol) error {
 }
 func (p *FileContent) ReadField8(iprot thrift.TProtocol) error {
 
-	var _field int32
-	if v, err := iprot.ReadI32(); err != nil {
+	var _field int64
+	if v, err := iprot.ReadI64(); err != nil {
 		return err
 	} else {
 		_field = v
@@ -1204,10 +1204,10 @@ WriteStructEndError:
 }
 
 func (p *FileContent) writeField1(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("fid", thrift.I32, 1); err != nil {
+	if err = oprot.WriteFieldBegin("fid", thrift.I64, 1); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteI32(p.Fid); err != nil {
+	if err := oprot.WriteI64(p.Fid); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {
@@ -1255,10 +1255,10 @@ WriteFieldEndError:
 }
 
 func (p *FileContent) writeField4(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("size", thrift.I32, 4); err != nil {
+	if err = oprot.WriteFieldBegin("size", thrift.I64, 4); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteI32(p.Size); err != nil {
+	if err := oprot.WriteI64(p.Size); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {
@@ -1272,10 +1272,10 @@ WriteFieldEndError:
 }
 
 func (p *FileContent) writeField5(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("userid", thrift.I32, 5); err != nil {
+	if err = oprot.WriteFieldBegin("userid", thrift.I64, 5); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteI32(p.Userid); err != nil {
+	if err := oprot.WriteI64(p.Userid); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {
@@ -1323,10 +1323,10 @@ WriteFieldEndError:
 }
 
 func (p *FileContent) writeField8(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("id", thrift.I32, 8); err != nil {
+	if err = oprot.WriteFieldBegin("id", thrift.I64, 8); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteI32(p.ID); err != nil {
+	if err := oprot.WriteI64(p.ID); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {

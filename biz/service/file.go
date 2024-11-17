@@ -1,11 +1,17 @@
 package service
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
+	"mime/multipart"
+	"net/http"
+	"net/url"
+	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/cloudisk/biz/dal/query"
 	"github.com/cloudisk/biz/model/common"
@@ -14,6 +20,8 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+var alioss *OssUploader = NewOssUploader()
+
 func IsContainInt(items []int64, item int64) bool {
 	for _, eachItem := range items {
 		if eachItem == item {
@@ -21,6 +29,13 @@ func IsContainInt(items []int64, item int64) bool {
 		}
 	}
 	return false
+}
+
+func B2i(b bool) int64 {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 func isContain(items []string, item string) bool {
@@ -67,7 +82,7 @@ func getPermission(file *gorm_gen.File, userids []int64) int {
 	return int(fileUser.Permission)
 }
 
-func permissionFind(id int, user User, limit int) (*gorm_gen.File, error) {
+func permissionFind(id int, user *User, limit int) (*gorm_gen.File, error) {
 	file, err := query.Q.File.Where(query.File.ID.Eq(int64(id))).First()
 	if err != nil {
 		return nil, errors.New("文件夹不存在或已被删除")
@@ -128,7 +143,10 @@ func saveBeforePP(f *gorm_gen.File) bool {
 	}
 	f.Pshare = pshare
 	// Save the file
-	_, err := query.Q.File.Where(query.File.ID.Eq(f.ID)).Updates(f)
+	err := query.Q.File.Where(query.File.ID.Eq(f.ID)).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "id"}},
+		UpdateAll: true,
+	}).Create(f)
 	if err != nil {
 		return false
 	}
@@ -144,36 +162,27 @@ func saveBeforePP(f *gorm_gen.File) bool {
 	return true
 }
 
-func HandleDuplicateName(f *gorm_gen.File) (newName string, err error) {
+func HandleDuplicateName(f *gorm_gen.File) error {
 	// Check for existing file with the same name, pid, user ID, and extension
 	var count int64
-	_, err = query.Q.File.Where(query.File.Pid.Eq(f.Pid), query.File.Userid.Eq(f.Userid), query.File.Ext.Eq(f.Ext), query.File.Name.Eq(f.Name)).First()
+	_, err := query.Q.File.Where(query.File.Pid.Eq(f.Pid), query.File.Userid.Eq(f.Userid), query.File.Ext.Eq(f.Ext), query.File.Name.Eq(f.Name)).First()
 	if err != nil {
-		return "", err
-	}
-	if count == 0 {
-		return "", err // No duplicate found
+		return err
 	}
 
 	// Generate a new name
 	var nextNum int = 2
 	if matched, _ := regexp.MatchString(`(.*?)(\s+\(\d+\))*`, f.Name); matched {
 		var preName string
-		_, err := fmt.Sscanf(f.Name, "%s %d", &preName, &nextNum)
-		if err != nil {
-			return "", err
-		}
+		fmt.Sscanf(f.Name, "%s %d", &preName, &nextNum)
 		nextNum++
 
 		// Check for existing file with the new name
-		count, err = query.Q.File.Where(query.File.Pid.Eq(f.Pid), query.File.Userid.Eq(f.Userid), query.File.Ext.Eq(f.Ext), query.File.Name.Eq(f.Name), query.File.Name.Like(fmt.Sprintf("%s%", preName))).Count()
-		if err != nil {
-			return "", err
-		}
+		count, _ = query.Q.File.Where(query.File.Pid.Eq(f.Pid), query.File.Userid.Eq(f.Userid), query.File.Ext.Eq(f.Ext), query.File.Name.Eq(f.Name), query.File.Name.Like(fmt.Sprintf("%s%%", preName))).Count()
 		nextNum += int(count)
 	}
 
-	newName = fmt.Sprintf("%s (%d)", f.Name, nextNum)
+	newName := fmt.Sprintf("%s (%d)", f.Name, nextNum)
 
 	// Check for existing file with the newly generated name
 	_, err = query.Q.File.Where(query.File.Pid.Eq(f.Pid), query.File.Userid.Eq(f.Userid), query.File.Ext.Eq(f.Ext), query.File.Name.Eq(f.Name)).First()
@@ -181,12 +190,88 @@ func HandleDuplicateName(f *gorm_gen.File) (newName string, err error) {
 		nextNum = rand.Intn(9000) + 100
 		newName = fmt.Sprintf("%s (%d)", f.Name, nextNum)
 	}
-
-	// f.Name = newName
-	return newName, err
+	f.Name = newName
+	return err
 }
 
-func Upload(user User, pid int, webkitRelativePath string, overwrite bool) (*common.File, error) {
+func getFileType(filename string) string {
+	ext := getFileNameExt(filename)
+	switch ext {
+	case "text", "md", "markdown":
+		return "document"
+	case "drawio":
+		return "drawio"
+	case "mind":
+		return "mind"
+	case "doc", "docx":
+		return "word"
+	case "xls", "xlsx":
+		return "excel"
+	case "ppt", "pptx":
+		return "ppt"
+	case "wps":
+		return "wps"
+	case "jpg", "jpeg", "webp", "png", "gif", "bmp", "ico", "raw", "svg":
+		return "picture"
+	case "rar", "zip", "jar", "7-zip", "tar", "gzip", "7z", "gz", "apk", "dmg":
+		return "archive"
+	case "tif", "tiff":
+		return "tif"
+	case "dwg", "dxf":
+		return "cad"
+	case "ofd":
+		return "ofd"
+	case "pdf":
+		return "pdf"
+	case "txt":
+		return "txt"
+	case "htaccess", "htgroups", "htpasswd", "conf", "bat", "cmd", "cpp", "c", "cc", "cxx", "h", "hh", "hpp", "ino", "cs", "css",
+		"dockerfile", "go", "golang", "html", "htm", "xhtml", "vue", "we", "wpy", "java", "js", "jsm", "jsx", "json", "jsp", "less", "lua", "makefile", "gnumakefile",
+		"ocamlmakefile", "make", "mysql", "nginx", "ini", "cfg", "prefs", "m", "mm", "pl", "pm", "p6", "pl6", "pm6", "pgsql", "php",
+		"inc", "phtml", "shtml", "php3", "php4", "php5", "phps", "phpt", "aw", "ctp", "module", "ps1", "py", "r", "rb", "ru", "gemspec", "rake", "guardfile", "rakefile",
+		"gemfile", "rs", "sass", "scss", "sh", "bash", "bashrc", "sql", "sqlserver", "swift", "ts", "typescript", "str", "vbs", "vb", "v", "vh", "sv", "svh", "xml",
+		"rdf", "rss", "wsdl", "xslt", "atom", "mathml", "mml", "xul", "xbl", "xaml", "yaml", "yml",
+		"asp", "properties", "gitignore", "log", "bas", "prg", "python", "ftl", "aspx", "plist":
+		return "code"
+	case "mp3", "wav", "mp4", "flv", "avi", "mov", "wmv", "mkv", "3gp", "rm":
+		return "media"
+	case "xmind":
+		return "xmind"
+	case "rp":
+		return "axure"
+	default:
+		return ""
+	}
+}
+
+func getFileNameWithoutExt(filename string) string {
+	// 获取文件名中最后一个 . 的位置
+	index := strings.LastIndex(filename, ".")
+
+	// 如果没有找到 .，则返回整个文件名
+	if index == -1 {
+		return filename
+	}
+
+	// 获取文件名中最后一个 . 之前的名称
+	name := strings.Split(filename[:index], ".")[0]
+	return name
+}
+func getFileNameExt(filename string) string {
+	// 获取文件名中最后一个 . 的位置
+	index := strings.LastIndex(filename, ".")
+
+	// 如果没有找到 .，则返回整个文件名
+	if index == -1 {
+		return filename
+	}
+	fmt.Println(index, filename[index:])
+	// 获取文件名中最后一个 . 之前的名称
+	name := strings.Split(filename[index:], ".")[1]
+	return name
+}
+
+func Upload(user *User, pid int, webkitRelativePath string, overwrite bool, file multipart.FileHeader) (*common.File, error) {
 	user_id := int64(user.Userid)
 	if pid > 0 {
 		count, _ := query.Q.File.Where(query.File.Pid.Eq(int64(pid))).Count()
@@ -199,7 +284,7 @@ func Upload(user User, pid int, webkitRelativePath string, overwrite bool) (*com
 		}
 		user_id = row.Userid
 	} else {
-		count, _ := query.Q.File.Where(query.File.Userid.Eq(int64(user.Userid))).Where(query.File.Pid.Eq(0)).Count()
+		count, _ := query.Q.File.Where(query.File.Userid.Eq(int64(user.Userid)), query.File.Pid.Eq(0)).Count()
 		if count >= 300 {
 			return nil, errors.New("每个文件夹里最多只能创建300个文件或文件夹")
 		}
@@ -207,25 +292,130 @@ func Upload(user User, pid int, webkitRelativePath string, overwrite bool) (*com
 
 	dirs := strings.Split(webkitRelativePath, "/")
 
-	for _, dirName := range dirs[1:] {
+	for _, dirName := range dirs[0 : len(dirs)-1] {
 		if dirName == "" {
 			continue
 		}
 		query.Q.Transaction(func(tx *query.Query) error {
-			row, err := query.Q.File.Where(query.File.Pid.Eq(int64(pid)), query.File.Name.Eq(dirName)).Clauses(clause.Locking{Strength: "UPDATE"}).First()
+			row, err := tx.File.Where(query.File.Pid.Eq(int64(pid)), query.File.Name.Eq(dirName)).Clauses(clause.Locking{Strength: "UPDATE"}).First()
 			if err != nil {
 				file := gorm_gen.File{Pid: int64(pid), Type: "folder", Name: dirName, Userid: user_id, CreatedID: int64(user.Userid)}
-				file.Name, _ = HandleDuplicateName(&file)
+				HandleDuplicateName(&file)
 				if saveBeforePP(&file) {
-					query.Q.File.Create(&file)
+					tx.File.Create(&file)
 				}
+				pid = int(file.Pid)
+			} else {
+				pid = int(row.Pid)
 			}
-			pid = int(row.Pid)
 			return nil
 		})
 	}
+	_file_open, _ := file.Open()
+	res, err := alioss.Upload(_file_open, file.Filename, false)
+	if err != nil {
+		return nil, err
+	}
+	_file_open.Close()
+	filetype := getFileType(file.Filename)
+	_file := gorm_gen.File{Pid: int64(pid), Type: filetype, Name: getFileNameWithoutExt(file.Filename), Ext: getFileNameExt(file.Filename), Userid: user_id, CreatedID: int64(user.Userid), Size: res.ContentLength}
+	var newfile *gorm_gen.File
+	if overwrite {
+		newfile, _ = query.Q.File.Where(query.File.Ext.Eq(_file.Ext), query.File.Pid.Eq(_file.Pid), query.File.Name.Eq(_file.Name)).First()
+	}
+	if newfile == nil {
+		overwrite = false
+		newfile = &_file
+	}
 
-	resp := &common.File{}
+	fmt.Printf("res: %v\n", res)
+	err = query.Q.Transaction(func(tx *query.Query) error {
+		HandleDuplicateName(newfile)
+		saveBeforePP(newfile)
+		content := map[string]interface{}{
+			"from":   "",
+			"type":   "document", // Assuming $type is "document"
+			"ext":    filetype,
+			"url":    "",
+			"remote": res.ETag,
+		}
+		jsonData, err := json.Marshal(content)
+		if err != nil {
+			fmt.Println("Error:", err)
+			return nil
+		}
+		filecontent := gorm_gen.FileContent{Fid: newfile.ID, Content: string(jsonData), Text: "", Size: res.ContentLength, Userid: user_id}
+		tx.FileContent.Create(&filecontent)
+		return nil
+	})
+	if err != nil {
+		return nil, errors.New("file upload failed,SQL create failed: " + err.Error())
+	}
+	newfile, _ = query.Q.File.Where(query.File.ID.Eq(newfile.ID)).First()
+	fullName := newfile.Name + "." + newfile.Ext
+	if webkitRelativePath != "" {
+		fullName = webkitRelativePath
+	}
+	resp := &common.File{
+		ID:        newfile.ID,
+		Pid:       newfile.Pid,
+		Pids:      newfile.Pids,
+		Cid:       newfile.Cid,
+		Name:      newfile.Name,
+		Type:      newfile.Type,
+		Ext:       newfile.Ext,
+		Size:      newfile.Size,
+		Userid:    newfile.Userid,
+		Share:     newfile.Share,
+		Pshare:    newfile.Pshare,
+		CreatedID: newfile.CreatedID,
+		CreatedAt: newfile.CreatedAt.Format("YYYY-mm-dd HH:MM:SS"),
+		UpdatedAt: newfile.UpdatedAt.Format("YYYY-mm-dd HH:MM:SS"),
+		FullName:  fullName,
+		Overwrite: B2i(overwrite),
+	}
 
 	return resp, nil
+}
+
+func OfficeUpload(user *User, id int, status int, key string, urlStr string) error {
+	row, err := permissionFind(id, user, 1)
+	if err != nil {
+		return err
+	}
+	if status == 2 {
+		parsedURL, err := url.Parse(urlStr)
+		if err != nil {
+			fmt.Println("Error parsing URL:", err)
+			return err
+		}
+		from := fmt.Sprintf("http://%s.3%s?%s", os.Getenv("APP_IPPR"), parsedURL.Path, parsedURL.RawQuery)
+		response, err := http.Get(from)
+		if err != nil {
+			return err
+		}
+		defer response.Body.Close()
+		res, err := alioss.ReaderUpload(response.Body, key, false)
+		if err != nil {
+			return err
+		}
+		content := map[string]interface{}{
+			"from":   "",
+			"url":    "",
+			"remote": res.ETag,
+		}
+		jsonData, err := json.Marshal(content)
+		if err != nil {
+			return err
+		}
+		filecontent := gorm_gen.FileContent{Fid: row.ID, Content: string(jsonData), Text: "", Size: res.ContentLength, Userid: int64(user.Userid)}
+		query.Q.FileContent.Create(&filecontent)
+		row.Size = res.ContentLength
+		row.UpdatedAt = time.Now()
+		_, err = query.Q.File.Where(query.File.ID.Eq(row.ID)).Updates(row)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
