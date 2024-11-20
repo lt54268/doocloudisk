@@ -252,9 +252,8 @@ func getFileNameWithoutExt(filename string) string {
 	if index == -1 {
 		return filename
 	}
-
 	// 获取文件名中最后一个 . 之前的名称
-	name := strings.Split(filename[:index], ".")[0]
+	name := filename[:index]
 	return name
 }
 func getFileNameExt(filename string) string {
