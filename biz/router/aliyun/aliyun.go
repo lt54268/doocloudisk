@@ -23,7 +23,9 @@ func Register(r *server.Hertz) {
 			_file := _api.Group("/file", _fileMw()...)
 			{
 				_content := _file.Group("/content", _contentMw()...)
+				_content.GET("/download", append(_downloadMw(), aliyun.Download)...)
 				_content.POST("/office", append(_officeuploadMw(), aliyun.OfficeUpload)...)
+				_content.DELETE("/remove", append(_removeMw(), aliyun.Remove)...)
 				_content.POST("/save", append(_saveMw(), aliyun.Save)...)
 				_content.POST("/upload", append(_uploadMw(), aliyun.Upload)...)
 			}

@@ -331,12 +331,15 @@ func Upload(user *User, pid int, webkitRelativePath string, overwrite bool, file
 	err = query.Q.Transaction(func(tx *query.Query) error {
 		HandleDuplicateName(newfile)
 		saveBeforePP(newfile)
+		ip := os.Getenv("IP")
+		port := os.Getenv("PORT")
+		downloadURL := fmt.Sprintf("https://%s:%s/api/file/content/download?fileId=%d", ip, port, newfile.ID)
 		content := map[string]interface{}{
 			"from":   "",
 			"type":   "document", // Assuming $type is "document"
 			"ext":    filetype,
 			"url":    "",
-			"remote": res.ETag,
+			"remote": downloadURL,
 		}
 		jsonData, err := json.Marshal(content)
 		if err != nil {
@@ -398,10 +401,13 @@ func OfficeUpload(user *User, id int, status int, key string, urlStr string) err
 		if err != nil {
 			return err
 		}
+		ip := os.Getenv("IP")
+		port := os.Getenv("PORT")
+		downloadURL := fmt.Sprintf("https://%s:%s/api/file/content/download?fileId=%d", ip, port, row.ID)
 		content := map[string]interface{}{
 			"from":   "",
 			"url":    "",
-			"remote": res.ETag,
+			"remote": downloadURL,
 		}
 		jsonData, err := json.Marshal(content)
 		if err != nil {
@@ -416,5 +422,33 @@ func OfficeUpload(user *User, id int, status int, key string, urlStr string) err
 			return err
 		}
 	}
+	return nil
+}
+
+func DeleteLocalFileWithUser(user *User, fileID int32) error {
+	// 查询数据库获取文件信息
+	file, err := query.Q.File.Where(query.File.ID.Eq(int64(fileID))).First()
+	if err != nil {
+		return fmt.Errorf("file not found: %w", err)
+	}
+
+	// 获取本地下载目录
+	localDir := os.Getenv("OSS_DOWNLOAD_DIR")
+	if localDir == "" {
+		return errors.New("local download directory not configured")
+	}
+
+	// 构造本地文件路径
+	localFilePath := fmt.Sprintf("%s/%s.%s", localDir, file.Name, file.Ext)
+
+	// 删除本地文件
+	err = os.Remove(localFilePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("file not found on local storage: %w", err)
+		}
+		return fmt.Errorf("failed to delete local file: %w", err)
+	}
+
 	return nil
 }

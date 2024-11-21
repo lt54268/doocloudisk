@@ -65,8 +65,32 @@ struct SaveResp {
     3: common.FileContent Data;
 }
 
+struct DownloadReq {
+    1: i32 FileId (api.query="fileId");
+}
+
+struct DownloadResp {
+    1: i8 Ret;
+    2: string Msg;
+    3: string FileName;
+    4: i32 FileSize;
+    5: string FileContentType;
+    6: string FileContent;
+}
+
+struct RemoveReq {
+    1: i32 FileId (api.query="fileId");
+}
+
+struct RemoveResp {
+    1: i8 Ret;
+    2: string Msg;
+}
+
 service AliyunService {
     UploadResp upload(1: UploadReq request) (api.post="/api/file/content/upload");
     OfficeUploadResp office_upload(1: OfficeUploadReq request) (api.post="/api/file/content/office");
     SaveResp save(1: SaveReq request) (api.post="/api/file/content/save");
+    DownloadResp download(1: DownloadReq request) (api.get="/api/file/content/download");
+    RemoveResp remove(1: RemoveReq request) (api.delete="/api/file/content/remove");
 }

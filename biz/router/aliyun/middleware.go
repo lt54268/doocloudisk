@@ -40,3 +40,13 @@ func _uploadMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
+
+func _downloadMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}
+
+func _removeMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}

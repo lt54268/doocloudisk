@@ -4,8 +4,11 @@ package aliyun
 
 import (
 	"context"
+	"errors"
+	"os"
 	"strconv"
 
+	"github.com/cloudisk/biz/dal/query"
 	aliyun "github.com/cloudisk/biz/model/aliyun"
 	"github.com/cloudisk/biz/service"
 	"github.com/cloudwego/hertz/pkg/app"
@@ -73,6 +76,78 @@ func Save(ctx context.Context, c *app.RequestContext) {
 	}
 
 	resp := new(aliyun.SaveResp)
+
+	c.JSON(consts.StatusOK, resp)
+}
+
+// Download .
+// @router /api/file/content/download [GET]
+func Download(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req aliyun.DownloadReq
+	err = c.BindAndValidate(&req)
+	if err != nil {
+		c.String(consts.StatusBadRequest, err.Error())
+		return
+	}
+
+	// 从请求中获取文件ID
+	fileID := req.FileId
+
+	// 查询数据库获取文件信息
+	file, err := query.Q.File.Where(query.File.ID.Eq(int64(fileID))).First()
+	if err != nil {
+		c.String(consts.StatusNotFound, "File not found")
+		return
+	}
+
+	// 构造阿里云OSS对象名称
+	ossFileName := file.Name + "." + file.Ext
+
+	// 从阿里云OSS下载文件到本地
+	_, err = service.DownloadFileToLocal(ossFileName)
+	if err != nil {
+		c.String(consts.StatusInternalServerError, "File download failed: "+err.Error())
+		return
+	}
+
+	resp := new(aliyun.DownloadResp)
+	resp.Ret = 1
+	resp.Msg = "下载成功"
+
+	c.JSON(consts.StatusOK, resp)
+}
+
+// Remove .
+// @router /api/file/content/remove [DELETE]
+func Remove(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req aliyun.RemoveReq
+	err = c.BindAndValidate(&req)
+	if err != nil {
+		c.String(consts.StatusBadRequest, err.Error())
+		return
+	}
+
+	user, _ := service.GetUserInfo(c.GetHeader("Token"))
+
+	// 从请求中获取文件ID
+	fileID := req.FileId
+
+	// 调用封装后的删除函数
+	err = service.DeleteLocalFileWithUser(user, fileID)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			c.String(consts.StatusNotFound, "File not found on local storage")
+		} else {
+			c.String(consts.StatusInternalServerError, "Local file deletion failed: "+err.Error())
+		}
+		return
+	}
+
+	resp := new(aliyun.RemoveResp)
+	resp.Ret = 1
+	resp.Msg = "删除成功"
 
 	c.JSON(consts.StatusOK, resp)
 }
