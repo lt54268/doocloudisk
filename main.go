@@ -4,11 +4,13 @@ package main
 
 import (
 	_ "github.com/cloudisk/biz/dal"
+	middleware "github.com/cloudisk/biz/router"
 	"github.com/cloudwego/hertz/pkg/app/server"
 )
 
 func main() {
 	h := server.Default(server.WithMaxRequestBodySize(100 * 1024 * 1024))
+	h.Use(middleware.CloudProviderMiddleware())
 
 	register(h)
 	h.Spin()

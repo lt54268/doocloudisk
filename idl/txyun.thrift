@@ -1,5 +1,5 @@
-// idl/aliyun.thrift
-namespace go aliyun
+// idl/txyun.thrift
+namespace go txyun
 include "common.thrift"
 // struct File {
 //   1: i32 id;
@@ -87,7 +87,7 @@ struct RemoveResp {
     2: string Msg;
 }
 
-service AliyunService {
+service TxyunService {
     UploadResp upload(1: UploadReq request) (api.post="/api/file/content/upload");
     OfficeUploadResp office_upload(1: OfficeUploadReq request) (api.post="/api/file/content/office");
     SaveResp save(1: SaveReq request) (api.post="/api/file/content/save");

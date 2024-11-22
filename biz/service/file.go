@@ -354,6 +354,7 @@ func Upload(user *User, pid int, webkitRelativePath string, overwrite bool, file
 		return nil, errors.New("file upload failed,SQL create failed: " + err.Error())
 	}
 	newfile, _ = query.Q.File.Where(query.File.ID.Eq(newfile.ID)).First()
+
 	fullName := newfile.Name + "." + newfile.Ext
 	if webkitRelativePath != "" {
 		fullName = webkitRelativePath

@@ -15,9 +15,11 @@ import (
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 )
 
+type AliyunOSS struct{}
+
 // Upload .
 // @router /api/file/content/upload [POST]
-func Upload(ctx context.Context, c *app.RequestContext) {
+func (a *AliyunOSS) Upload(ctx context.Context, c *app.RequestContext) {
 	var err error
 	var req aliyun.UploadReq
 	err = c.BindAndValidate(&req)
@@ -26,11 +28,15 @@ func Upload(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	user, _ := service.GetUserInfo(c.GetHeader("Token"))
-	file, _ := c.FormFile("file")
+	form, err := c.MultipartForm()
+	if err != nil {
+		return
+	}
+	file := form.File["files"][0]
 	pid, _ := strconv.Atoi(req.GetPid())
 	cover, _ := strconv.ParseBool(req.GetCover())
-	webkitRelativePath := c.FormValue("webkitRelativePath")
-	item, _ := service.Upload(user, pid, string(webkitRelativePath), cover, *file)
+	webkitRelativePath := req.GetWebkitRelativePath()
+	item, _ := service.Upload(user, pid, webkitRelativePath, cover, *file)
 	resp := new(aliyun.UploadResp)
 	resp.Data = append(resp.Data, item)
 	resp.Ret = 1
@@ -41,7 +47,7 @@ func Upload(ctx context.Context, c *app.RequestContext) {
 
 // OfficeUpload .
 // @router /api/file/content/office [POST]
-func OfficeUpload(ctx context.Context, c *app.RequestContext) {
+func (a *AliyunOSS) OfficeUpload(ctx context.Context, c *app.RequestContext) {
 	var err error
 	var req aliyun.OfficeUploadReq
 	err = c.BindAndValidate(&req)
@@ -66,7 +72,7 @@ func OfficeUpload(ctx context.Context, c *app.RequestContext) {
 
 // Save .
 // @router /api/file/content/save [POST]
-func Save(ctx context.Context, c *app.RequestContext) {
+func (a *AliyunOSS) Save(ctx context.Context, c *app.RequestContext) {
 	var err error
 	var req aliyun.SaveReq
 	err = c.BindAndValidate(&req)
@@ -82,7 +88,7 @@ func Save(ctx context.Context, c *app.RequestContext) {
 
 // Download .
 // @router /api/file/content/download [GET]
-func Download(ctx context.Context, c *app.RequestContext) {
+func (a *AliyunOSS) Download(ctx context.Context, c *app.RequestContext) {
 	var err error
 	var req aliyun.DownloadReq
 	err = c.BindAndValidate(&req)
@@ -120,7 +126,7 @@ func Download(ctx context.Context, c *app.RequestContext) {
 
 // Remove .
 // @router /api/file/content/remove [DELETE]
-func Remove(ctx context.Context, c *app.RequestContext) {
+func (a *AliyunOSS) Remove(ctx context.Context, c *app.RequestContext) {
 	var err error
 	var req aliyun.RemoveReq
 	err = c.BindAndValidate(&req)
@@ -150,4 +156,30 @@ func Remove(ctx context.Context, c *app.RequestContext) {
 	resp.Msg = "删除成功"
 
 	c.JSON(consts.StatusOK, resp)
+}
+
+func Upload(ctx context.Context, c *app.RequestContext) {
+
+	aliyunOSS := &AliyunOSS{}
+	aliyunOSS.Upload(ctx, c)
+}
+
+func OfficeUpload(ctx context.Context, c *app.RequestContext) {
+	aliyunOSS := &AliyunOSS{}
+	aliyunOSS.OfficeUpload(ctx, c)
+}
+
+func Save(ctx context.Context, c *app.RequestContext) {
+	aliyunOSS := &AliyunOSS{}
+	aliyunOSS.Save(ctx, c)
+}
+
+func Download(ctx context.Context, c *app.RequestContext) {
+	aliyunOSS := &AliyunOSS{}
+	aliyunOSS.Download(ctx, c)
+}
+
+func Remove(ctx context.Context, c *app.RequestContext) {
+	aliyunOSS := &AliyunOSS{}
+	aliyunOSS.Remove(ctx, c)
 }
