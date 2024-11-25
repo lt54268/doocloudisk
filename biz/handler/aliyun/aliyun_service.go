@@ -17,6 +17,37 @@ import (
 
 type AliyunOSS struct{}
 
+func Upload(ctx context.Context, c *app.RequestContext) {
+
+	aliyunOSS := &AliyunOSS{}
+	aliyunOSS.Upload(ctx, c)
+}
+
+func OfficeUpload(ctx context.Context, c *app.RequestContext) {
+	aliyunOSS := &AliyunOSS{}
+	aliyunOSS.OfficeUpload(ctx, c)
+}
+
+func Save(ctx context.Context, c *app.RequestContext) {
+	aliyunOSS := &AliyunOSS{}
+	aliyunOSS.Save(ctx, c)
+}
+
+func Download(ctx context.Context, c *app.RequestContext) {
+	aliyunOSS := &AliyunOSS{}
+	aliyunOSS.Download(ctx, c)
+}
+
+func Downloading(ctx context.Context, c *app.RequestContext) {
+	aliyunOSS := &AliyunOSS{}
+	aliyunOSS.Downloading(ctx, c)
+}
+
+func Remove(ctx context.Context, c *app.RequestContext) {
+	aliyunOSS := &AliyunOSS{}
+	aliyunOSS.Remove(ctx, c)
+}
+
 // Upload .
 // @router /api/file/content/upload [POST]
 func (a *AliyunOSS) Upload(ctx context.Context, c *app.RequestContext) {
@@ -132,6 +163,47 @@ func (a *AliyunOSS) Download(ctx context.Context, c *app.RequestContext) {
 	c.JSON(consts.StatusOK, resp)
 }
 
+// Downloading .
+// @router /api/file/content/downloading [GET]
+func (a *AliyunOSS) Downloading(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req aliyun.DownloadReq
+	err = c.BindAndValidate(&req)
+	if err != nil {
+		c.String(consts.StatusBadRequest, err.Error())
+		return
+	}
+
+	fileID := req.FileId
+
+	file, err := query.Q.File.Where(query.File.ID.Eq(int64(fileID))).First()
+	if err != nil {
+		c.String(consts.StatusNotFound, "File not found")
+		return
+	}
+
+	ossFileName := file.Name + "." + file.Ext
+
+	fileData, err := service.DownloadFile(ossFileName)
+	if err != nil {
+		c.String(consts.StatusInternalServerError, "File download failed: "+err.Error())
+		return
+	}
+
+	// resp := new(aliyun.DownloadResp)
+	// resp.Ret = 1
+	// resp.Msg = "下载成功"
+
+	// c.JSON(consts.StatusOK, resp)
+
+	// 设置响应头，告知浏览器进行文件下载
+	c.Header("Content-Disposition", "attachment; filename="+file.Name+"."+file.Ext)
+	c.Header("Content-Type", "application/octet-stream") // 设置通用的文件类型，可以根据文件类型修改
+
+	// 返回文件内容
+	c.Data(consts.StatusOK, "application/octet-stream", fileData)
+}
+
 // Remove .
 // @router /api/file/content/remove [DELETE]
 func (a *AliyunOSS) Remove(ctx context.Context, c *app.RequestContext) {
@@ -164,30 +236,4 @@ func (a *AliyunOSS) Remove(ctx context.Context, c *app.RequestContext) {
 	resp.Msg = "删除成功"
 
 	c.JSON(consts.StatusOK, resp)
-}
-
-func Upload(ctx context.Context, c *app.RequestContext) {
-
-	aliyunOSS := &AliyunOSS{}
-	aliyunOSS.Upload(ctx, c)
-}
-
-func OfficeUpload(ctx context.Context, c *app.RequestContext) {
-	aliyunOSS := &AliyunOSS{}
-	aliyunOSS.OfficeUpload(ctx, c)
-}
-
-func Save(ctx context.Context, c *app.RequestContext) {
-	aliyunOSS := &AliyunOSS{}
-	aliyunOSS.Save(ctx, c)
-}
-
-func Download(ctx context.Context, c *app.RequestContext) {
-	aliyunOSS := &AliyunOSS{}
-	aliyunOSS.Download(ctx, c)
-}
-
-func Remove(ctx context.Context, c *app.RequestContext) {
-	aliyunOSS := &AliyunOSS{}
-	aliyunOSS.Remove(ctx, c)
 }

@@ -333,7 +333,7 @@ func Upload(user *User, pid int, webkitRelativePath string, overwrite bool, file
 		saveBeforePP(newfile)
 		ip := os.Getenv("IP")
 		port := os.Getenv("PORT")
-		downloadURL := fmt.Sprintf("https://%s:%s/api/file/content/download?fileId=%d", ip, port, newfile.ID)
+		downloadURL := fmt.Sprintf("https://%s:%s/api/file/content/downloading?fileId=%d", ip, port, newfile.ID)
 		content := map[string]interface{}{
 			"from":   "",
 			"type":   "document", // Assuming $type is "document"
@@ -404,7 +404,7 @@ func OfficeUpload(user *User, id int, status int, key string, urlStr string) err
 		}
 		ip := os.Getenv("IP")
 		port := os.Getenv("PORT")
-		downloadURL := fmt.Sprintf("https://%s:%s/api/file/content/download?fileId=%d", ip, port, row.ID)
+		downloadURL := fmt.Sprintf("https://%s:%s/api/file/content/downloading?fileId=%d", ip, port, row.ID)
 		content := map[string]interface{}{
 			"from":   "",
 			"url":    "",
