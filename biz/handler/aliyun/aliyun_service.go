@@ -111,9 +111,17 @@ func (a *AliyunOSS) Download(ctx context.Context, c *app.RequestContext) {
 	ossFileName := file.Name + "." + file.Ext
 
 	// 从阿里云OSS下载文件到本地
-	_, err = service.DownloadFileToLocal(ossFileName)
+	localFilePath, err := service.DownloadFileToLocal(ossFileName)
+	// _, err = service.DownloadFileToLocal(ossFileName)
 	if err != nil {
 		c.String(consts.StatusInternalServerError, "File download failed: "+err.Error())
+		return
+	}
+
+	// 将本地文件路径保存到数据库的content字段url部分
+	err = service.UpdateFileContentURLInDB(int64(fileID), localFilePath)
+	if err != nil {
+		c.String(consts.StatusInternalServerError, "Failed to update file content URL in the database: "+err.Error())
 		return
 	}
 

@@ -453,3 +453,36 @@ func DeleteLocalFileWithUser(user *User, fileID int32) error {
 
 	return nil
 }
+
+// 封装数据库更新content字段的url部分
+func UpdateFileContentURLInDB(fileID int64, localFilePath string) error {
+	// 查询数据库获取原始content
+	fileContent, err := query.Q.FileContent.Where(query.FileContent.Fid.Eq(fileID)).First()
+	if err != nil {
+		return fmt.Errorf("file content not found: %v", err)
+	}
+
+	// 解析现有的content字段
+	var content map[string]interface{}
+	err = json.Unmarshal([]byte(fileContent.Content), &content)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal content: %v", err)
+	}
+
+	// 更新content中的url字段为本地路径
+	content["url"] = localFilePath
+
+	// 将更新后的content转回JSON格式
+	updatedContent, err := json.Marshal(content)
+	if err != nil {
+		return fmt.Errorf("failed to marshal updated content: %v", err)
+	}
+
+	// 更新数据库中的content字段
+	if _, err := query.Q.FileContent.Where(query.FileContent.Fid.Eq(fileID)).
+		Update(query.FileContent.Content, string(updatedContent)); err != nil {
+		return fmt.Errorf("failed to update content in database: %v", err)
+	}
+
+	return nil
+}
