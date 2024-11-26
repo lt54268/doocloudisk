@@ -3,13 +3,26 @@
 package main
 
 import (
+	"os"
+
 	_ "github.com/cloudisk/biz/dal"
+	"github.com/cloudisk/biz/router"
 	"github.com/cloudwego/hertz/pkg/app/server"
 )
 
 func main() {
 	h := server.Default(server.WithMaxRequestBodySize(100 * 1024 * 1024))
 
-	register(h)
+	// 从环境变量中获取云服务提供商
+	provider := os.Getenv("CLOUD_PROVIDER")
+	cloudProvider := router.CloudFactory(provider)
+	if cloudProvider != nil {
+		cloudProvider.Register(h)
+	} else {
+		// 默认使用阿里云
+		cloudProvider = router.CloudFactory("aliyun")
+		cloudProvider.Register(h)
+	}
+
 	h.Spin()
 }

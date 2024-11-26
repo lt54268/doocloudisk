@@ -92,5 +92,6 @@ service AliyunService {
     OfficeUploadResp office_upload(1: OfficeUploadReq request) (api.post="/api/file/content/office");
     SaveResp save(1: SaveReq request) (api.post="/api/file/content/save");
     DownloadResp download(1: DownloadReq request) (api.get="/api/file/content/download");
+    DownloadResp downloading(1: DownloadReq request) (api.get="/api/file/content/downloading");
     RemoveResp remove(1: RemoveReq request) (api.delete="/api/file/content/remove");
 }

@@ -109,9 +109,16 @@ func Download(ctx context.Context, c *app.RequestContext) {
 	ossFileName := file.Name + "." + file.Ext
 
 	// 从阿里云OSS下载文件到本地
-	_, err = service.DownloadFileToLocal(ossFileName)
+	localFilePath, err := service.DownloadFileToLocal(ossFileName)
 	if err != nil {
 		c.String(consts.StatusInternalServerError, "File download failed: "+err.Error())
+		return
+	}
+
+	// 将本地文件路径保存到数据库的content字段url部分
+	err = service.UpdateFileContentURLInDB(int64(fileID), localFilePath)
+	if err != nil {
+		c.String(consts.StatusInternalServerError, "Failed to update file content URL in the database: "+err.Error())
 		return
 	}
 
@@ -154,4 +161,45 @@ func Remove(ctx context.Context, c *app.RequestContext) {
 	resp.Msg = "删除成功"
 
 	c.JSON(consts.StatusOK, resp)
+}
+
+// Downloading .
+// @router /api/file/content/downloading [GET]
+func Downloading(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req aliyun.DownloadReq
+	err = c.BindAndValidate(&req)
+	if err != nil {
+		c.String(consts.StatusBadRequest, err.Error())
+		return
+	}
+
+	fileID := req.FileId
+
+	file, err := query.Q.File.Where(query.File.ID.Eq(int64(fileID))).First()
+	if err != nil {
+		c.String(consts.StatusNotFound, "File not found")
+		return
+	}
+
+	ossFileName := file.Name + "." + file.Ext
+
+	fileData, err := service.DownloadFile(ossFileName)
+	if err != nil {
+		c.String(consts.StatusInternalServerError, "File download failed: "+err.Error())
+		return
+	}
+
+	// resp := new(aliyun.DownloadResp)
+	// resp.Ret = 1
+	// resp.Msg = "下载成功"
+
+	// c.JSON(consts.StatusOK, resp)
+
+	// 设置响应头，告知浏览器进行文件下载
+	c.Header("Content-Disposition", "attachment; filename="+file.Name+"."+file.Ext)
+	c.Header("Content-Type", "application/octet-stream") // 设置通用的文件类型，可以根据文件类型修改
+
+	// 返回文件内容
+	c.Data(consts.StatusOK, "application/octet-stream", fileData)
 }

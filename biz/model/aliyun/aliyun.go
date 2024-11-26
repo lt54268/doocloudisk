@@ -2220,6 +2220,8 @@ type AliyunService interface {
 
 	Download(ctx context.Context, request *DownloadReq) (r *DownloadResp, err error)
 
+	Downloading(ctx context.Context, request *DownloadReq) (r *DownloadResp, err error)
+
 	Remove(ctx context.Context, request *RemoveReq) (r *RemoveResp, err error)
 }
 
@@ -2285,6 +2287,15 @@ func (p *AliyunServiceClient) Download(ctx context.Context, request *DownloadReq
 	}
 	return _result.GetSuccess(), nil
 }
+func (p *AliyunServiceClient) Downloading(ctx context.Context, request *DownloadReq) (r *DownloadResp, err error) {
+	var _args AliyunServiceDownloadingArgs
+	_args.Request = request
+	var _result AliyunServiceDownloadingResult
+	if err = p.Client_().Call(ctx, "downloading", &_args, &_result); err != nil {
+		return
+	}
+	return _result.GetSuccess(), nil
+}
 func (p *AliyunServiceClient) Remove(ctx context.Context, request *RemoveReq) (r *RemoveResp, err error) {
 	var _args AliyunServiceRemoveArgs
 	_args.Request = request
@@ -2319,6 +2330,7 @@ func NewAliyunServiceProcessor(handler AliyunService) *AliyunServiceProcessor {
 	self.AddToProcessorMap("office_upload", &aliyunServiceProcessorOfficeUpload{handler: handler})
 	self.AddToProcessorMap("save", &aliyunServiceProcessorSave{handler: handler})
 	self.AddToProcessorMap("download", &aliyunServiceProcessorDownload{handler: handler})
+	self.AddToProcessorMap("downloading", &aliyunServiceProcessorDownloading{handler: handler})
 	self.AddToProcessorMap("remove", &aliyunServiceProcessorRemove{handler: handler})
 	return self
 }
@@ -2515,6 +2527,54 @@ func (p *aliyunServiceProcessorDownload) Process(ctx context.Context, seqId int3
 		result.Success = retval
 	}
 	if err2 = oprot.WriteMessageBegin("download", thrift.REPLY, seqId); err2 != nil {
+		err = err2
+	}
+	if err2 = result.Write(oprot); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.WriteMessageEnd(); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.Flush(ctx); err == nil && err2 != nil {
+		err = err2
+	}
+	if err != nil {
+		return
+	}
+	return true, err
+}
+
+type aliyunServiceProcessorDownloading struct {
+	handler AliyunService
+}
+
+func (p *aliyunServiceProcessorDownloading) Process(ctx context.Context, seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
+	args := AliyunServiceDownloadingArgs{}
+	if err = args.Read(iprot); err != nil {
+		iprot.ReadMessageEnd()
+		x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
+		oprot.WriteMessageBegin("downloading", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush(ctx)
+		return false, err
+	}
+
+	iprot.ReadMessageEnd()
+	var err2 error
+	result := AliyunServiceDownloadingResult{}
+	var retval *DownloadResp
+	if retval, err2 = p.handler.Downloading(ctx, args.Request); err2 != nil {
+		x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing downloading: "+err2.Error())
+		oprot.WriteMessageBegin("downloading", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush(ctx)
+		return true, err2
+	} else {
+		result.Success = retval
+	}
+	if err2 = oprot.WriteMessageBegin("downloading", thrift.REPLY, seqId); err2 != nil {
 		err = err2
 	}
 	if err2 = result.Write(oprot); err == nil && err2 != nil {
@@ -3761,6 +3821,302 @@ func (p *AliyunServiceDownloadResult) String() string {
 		return "<nil>"
 	}
 	return fmt.Sprintf("AliyunServiceDownloadResult(%+v)", *p)
+
+}
+
+type AliyunServiceDownloadingArgs struct {
+	Request *DownloadReq `thrift:"request,1"`
+}
+
+func NewAliyunServiceDownloadingArgs() *AliyunServiceDownloadingArgs {
+	return &AliyunServiceDownloadingArgs{}
+}
+
+func (p *AliyunServiceDownloadingArgs) InitDefault() {
+}
+
+var AliyunServiceDownloadingArgs_Request_DEFAULT *DownloadReq
+
+func (p *AliyunServiceDownloadingArgs) GetRequest() (v *DownloadReq) {
+	if !p.IsSetRequest() {
+		return AliyunServiceDownloadingArgs_Request_DEFAULT
+	}
+	return p.Request
+}
+
+var fieldIDToName_AliyunServiceDownloadingArgs = map[int16]string{
+	1: "request",
+}
+
+func (p *AliyunServiceDownloadingArgs) IsSetRequest() bool {
+	return p.Request != nil
+}
+
+func (p *AliyunServiceDownloadingArgs) Read(iprot thrift.TProtocol) (err error) {
+
+	var fieldTypeId thrift.TType
+	var fieldId int16
+
+	if _, err = iprot.ReadStructBegin(); err != nil {
+		goto ReadStructBeginError
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
+		if err != nil {
+			goto ReadFieldBeginError
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+
+		switch fieldId {
+		case 1:
+			if fieldTypeId == thrift.STRUCT {
+				if err = p.ReadField1(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		default:
+			if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		}
+		if err = iprot.ReadFieldEnd(); err != nil {
+			goto ReadFieldEndError
+		}
+	}
+	if err = iprot.ReadStructEnd(); err != nil {
+		goto ReadStructEndError
+	}
+
+	return nil
+ReadStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
+ReadFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
+ReadFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_AliyunServiceDownloadingArgs[fieldId]), err)
+SkipFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
+
+ReadFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
+ReadStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+}
+
+func (p *AliyunServiceDownloadingArgs) ReadField1(iprot thrift.TProtocol) error {
+	_field := NewDownloadReq()
+	if err := _field.Read(iprot); err != nil {
+		return err
+	}
+	p.Request = _field
+	return nil
+}
+
+func (p *AliyunServiceDownloadingArgs) Write(oprot thrift.TProtocol) (err error) {
+
+	var fieldId int16
+	if err = oprot.WriteStructBegin("downloading_args"); err != nil {
+		goto WriteStructBeginError
+	}
+	if p != nil {
+		if err = p.writeField1(oprot); err != nil {
+			fieldId = 1
+			goto WriteFieldError
+		}
+	}
+	if err = oprot.WriteFieldStop(); err != nil {
+		goto WriteFieldStopError
+	}
+	if err = oprot.WriteStructEnd(); err != nil {
+		goto WriteStructEndError
+	}
+	return nil
+WriteStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+WriteFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T write field %d error: ", p, fieldId), err)
+WriteFieldStopError:
+	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
+WriteStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
+}
+
+func (p *AliyunServiceDownloadingArgs) writeField1(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("request", thrift.STRUCT, 1); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := p.Request.Write(oprot); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
+}
+
+func (p *AliyunServiceDownloadingArgs) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("AliyunServiceDownloadingArgs(%+v)", *p)
+
+}
+
+type AliyunServiceDownloadingResult struct {
+	Success *DownloadResp `thrift:"success,0,optional"`
+}
+
+func NewAliyunServiceDownloadingResult() *AliyunServiceDownloadingResult {
+	return &AliyunServiceDownloadingResult{}
+}
+
+func (p *AliyunServiceDownloadingResult) InitDefault() {
+}
+
+var AliyunServiceDownloadingResult_Success_DEFAULT *DownloadResp
+
+func (p *AliyunServiceDownloadingResult) GetSuccess() (v *DownloadResp) {
+	if !p.IsSetSuccess() {
+		return AliyunServiceDownloadingResult_Success_DEFAULT
+	}
+	return p.Success
+}
+
+var fieldIDToName_AliyunServiceDownloadingResult = map[int16]string{
+	0: "success",
+}
+
+func (p *AliyunServiceDownloadingResult) IsSetSuccess() bool {
+	return p.Success != nil
+}
+
+func (p *AliyunServiceDownloadingResult) Read(iprot thrift.TProtocol) (err error) {
+
+	var fieldTypeId thrift.TType
+	var fieldId int16
+
+	if _, err = iprot.ReadStructBegin(); err != nil {
+		goto ReadStructBeginError
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
+		if err != nil {
+			goto ReadFieldBeginError
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+
+		switch fieldId {
+		case 0:
+			if fieldTypeId == thrift.STRUCT {
+				if err = p.ReadField0(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		default:
+			if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		}
+		if err = iprot.ReadFieldEnd(); err != nil {
+			goto ReadFieldEndError
+		}
+	}
+	if err = iprot.ReadStructEnd(); err != nil {
+		goto ReadStructEndError
+	}
+
+	return nil
+ReadStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
+ReadFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
+ReadFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_AliyunServiceDownloadingResult[fieldId]), err)
+SkipFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
+
+ReadFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
+ReadStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+}
+
+func (p *AliyunServiceDownloadingResult) ReadField0(iprot thrift.TProtocol) error {
+	_field := NewDownloadResp()
+	if err := _field.Read(iprot); err != nil {
+		return err
+	}
+	p.Success = _field
+	return nil
+}
+
+func (p *AliyunServiceDownloadingResult) Write(oprot thrift.TProtocol) (err error) {
+
+	var fieldId int16
+	if err = oprot.WriteStructBegin("downloading_result"); err != nil {
+		goto WriteStructBeginError
+	}
+	if p != nil {
+		if err = p.writeField0(oprot); err != nil {
+			fieldId = 0
+			goto WriteFieldError
+		}
+	}
+	if err = oprot.WriteFieldStop(); err != nil {
+		goto WriteFieldStopError
+	}
+	if err = oprot.WriteStructEnd(); err != nil {
+		goto WriteStructEndError
+	}
+	return nil
+WriteStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+WriteFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T write field %d error: ", p, fieldId), err)
+WriteFieldStopError:
+	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
+WriteStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
+}
+
+func (p *AliyunServiceDownloadingResult) writeField0(oprot thrift.TProtocol) (err error) {
+	if p.IsSetSuccess() {
+		if err = oprot.WriteFieldBegin("success", thrift.STRUCT, 0); err != nil {
+			goto WriteFieldBeginError
+		}
+		if err := p.Success.Write(oprot); err != nil {
+			return err
+		}
+		if err = oprot.WriteFieldEnd(); err != nil {
+			goto WriteFieldEndError
+		}
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 0 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 0 end error: ", p), err)
+}
+
+func (p *AliyunServiceDownloadingResult) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("AliyunServiceDownloadingResult(%+v)", *p)
 
 }
 
