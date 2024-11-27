@@ -20,7 +20,31 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-var alioss *OssUploader = NewOssUploader()
+// CloudUploader 定义统一的云存储上传接口
+type CloudUploader interface {
+	Upload(file multipart.File, objectName string) (ContentLength int64, err error)
+}
+
+var (
+	alioss        *OssUploader   = NewOssUploader()
+	cosUploader   *CosUploader   = NewCosUploader()
+	qiniuUploader *QiniuCommoner = NewQiniuClient()
+)
+
+// getCloudUploader 根据环境变量返回对应的云存储上传器
+func getCloudUploader() CloudUploader {
+	cloudProvider := os.Getenv("CLOUD_PROVIDER")
+	switch cloudProvider {
+	case "aliyun":
+		return alioss
+	case "tencent":
+		return cosUploader
+	case "qiniu":
+		return qiniuUploader
+	default:
+		return alioss // 默认使用阿里云OSS
+	}
+}
 
 func IsContainInt(items []int64, item int64) bool {
 	for _, eachItem := range items {
@@ -265,7 +289,7 @@ func getFileNameExt(filename string) string {
 		return filename
 	}
 	fmt.Println(index, filename[index:])
-	// 获取文件名中最后一个 . 之前的名称
+	// 获取文件名中最后一个 . 之后的名称
 	name := strings.Split(filename[index:], ".")[1]
 	return name
 }
@@ -311,13 +335,14 @@ func Upload(user *User, pid int, webkitRelativePath string, overwrite bool, file
 		})
 	}
 	_file_open, _ := file.Open()
-	res, err := alioss.Upload(_file_open, file.Filename, false)
+	uploader := getCloudUploader()
+	contentLength, err := uploader.Upload(_file_open, file.Filename)
 	if err != nil {
 		return nil, err
 	}
 	_file_open.Close()
 	filetype := getFileType(file.Filename)
-	_file := gorm_gen.File{Pid: int64(pid), Type: filetype, Name: getFileNameWithoutExt(file.Filename), Ext: getFileNameExt(file.Filename), Userid: user_id, CreatedID: int64(user.Userid), Size: res.ContentLength}
+	_file := gorm_gen.File{Pid: int64(pid), Type: filetype, Name: getFileNameWithoutExt(file.Filename), Ext: getFileNameExt(file.Filename), Userid: user_id, CreatedID: int64(user.Userid), Size: contentLength}
 	var newfile *gorm_gen.File
 	if overwrite {
 		newfile, _ = query.Q.File.Where(query.File.Ext.Eq(_file.Ext), query.File.Pid.Eq(_file.Pid), query.File.Name.Eq(_file.Name)).First()
@@ -327,7 +352,7 @@ func Upload(user *User, pid int, webkitRelativePath string, overwrite bool, file
 		newfile = &_file
 	}
 
-	fmt.Printf("res: %v\n", res)
+	fmt.Printf("res: %v\n", contentLength)
 	err = query.Q.Transaction(func(tx *query.Query) error {
 		HandleDuplicateName(newfile)
 		saveBeforePP(newfile)
@@ -346,7 +371,7 @@ func Upload(user *User, pid int, webkitRelativePath string, overwrite bool, file
 			fmt.Println("Error:", err)
 			return nil
 		}
-		filecontent := gorm_gen.FileContent{Fid: newfile.ID, Content: string(jsonData), Text: "", Size: res.ContentLength, Userid: user_id}
+		filecontent := gorm_gen.FileContent{Fid: newfile.ID, Content: string(jsonData), Text: "", Size: contentLength, Userid: user_id}
 		tx.FileContent.Create(&filecontent)
 		return nil
 	})

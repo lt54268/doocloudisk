@@ -2,16 +2,14 @@ package service
 
 import (
 	"context"
-	//"dooqiniu/internal/model"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"os"
-	"path/filepath"
+	"strings"
 
-	"github.com/qiniu/go-sdk/v7/auth"
+	"github.com/qiniu/go-sdk/v7/auth/qbox"
 	"github.com/qiniu/go-sdk/v7/storage"
-	"github.com/qiniu/go-sdk/v7/storagev2/credentials"
-	"github.com/qiniu/go-sdk/v7/storagev2/http_client"
-	"github.com/qiniu/go-sdk/v7/storagev2/uploader"
 )
 
 type QiniuCommoner struct {
@@ -19,6 +17,34 @@ type QiniuCommoner struct {
 	secretKey  string
 	bucketName string
 	endpoint   string
+	zone       string
+}
+
+// getZone 根据区域名称获取存储区域配置
+func getZone(zoneName string) *storage.Zone {
+	switch strings.ToLower(zoneName) {
+	case "huadong", "east":
+		return &storage.ZoneHuadong
+	case "huanan", "south":
+		return &storage.ZoneHuanan
+	case "huabei", "north":
+		return &storage.ZoneHuabei
+	case "beimei", "na":
+		return &storage.ZoneBeimei
+	case "xinjiapo", "singapore":
+		return &storage.ZoneXinjiapo
+	default:
+		return &storage.ZoneHuanan // 默认使用华南区域
+	}
+}
+
+// getConfig 获取存储配置
+func (q *QiniuCommoner) getConfig() *storage.Config {
+	return &storage.Config{
+		Zone:          getZone(q.zone),
+		UseCdnDomains: false,
+		UseHTTPS:      true,
+	}
 }
 
 func NewQiniuClient() *QiniuCommoner {
@@ -27,62 +53,53 @@ func NewQiniuClient() *QiniuCommoner {
 		secretKey:  os.Getenv("QINIU_SECRETKEY"),
 		bucketName: os.Getenv("QINIU_BUCKET"),
 		endpoint:   os.Getenv("QINIU_ENDPOINT"),
+		zone:       os.Getenv("QINIU_ZONE"), // 从环境变量获取区域设置
 	}
 }
 
-// 上传将文件上传到七牛云
-func (q *QiniuCommoner) Upload(filePath, objectName string) (*storage.PutRet, error) {
-	mac := credentials.NewCredentials(q.accessKey, q.secretKey)
+// Upload 将文件上传到七牛云
+func (q *QiniuCommoner) Upload(file multipart.File, objectName string) (int64, error) {
+	// 创建凭证
+	mac := qbox.NewMac(q.accessKey, q.secretKey)
 
-	// 创建具有凭证的上传管理器
-	options := uploader.UploadManagerOptions{
-		Options: http_client.Options{
-			Credentials: mac,
-		},
+	// 创建上传策略
+	putPolicy := storage.PutPolicy{
+		Scope: q.bucketName,
 	}
-	uploadManager := uploader.NewUploadManager(&options)
+	upToken := putPolicy.UploadToken(mac)
 
-	file, err := os.Open(filePath)
+	// 创建上传管理器
+	formUploader := storage.NewFormUploader(q.getConfig())
+
+	// 创建临时文件
+	tempFile, err := os.CreateTemp("", "qiniu-upload-*")
 	if err != nil {
-		return nil, fmt.Errorf("failed to open file: %w", err)
+		return 0, fmt.Errorf("failed to create temp file: %w", err)
 	}
-	defer file.Close()
+	defer os.Remove(tempFile.Name())
+	defer tempFile.Close()
 
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("file does not exist: %s", filePath)
+	// 将multipart.File的内容复制到临时文件
+	size, err := io.Copy(tempFile, file)
+	if err != nil {
+		return 0, fmt.Errorf("failed to copy file content: %w", err)
 	}
 
-	// 使用目标路径设置对象选项
-	objectOptions := &uploader.ObjectOptions{
-		BucketName: q.bucketName,
-		ObjectName: &objectName,
-		FileName:   filepath.Base(filePath),
+	// 重置文件指针到开始位置
+	if _, err := tempFile.Seek(0, 0); err != nil {
+		return 0, fmt.Errorf("failed to seek file: %w", err)
 	}
+
+	// 定义上传返回值
+	ret := storage.PutRet{}
 
 	// 执行上传
-	var putRet storage.PutRet
-	err = uploadManager.UploadFile(context.Background(), filePath, objectOptions, &putRet)
+	err = formUploader.PutFile(context.Background(), &ret, upToken, objectName, tempFile.Name(), nil)
 	if err != nil {
-		return nil, fmt.Errorf("upload failed: %w", err)
+		return 0, fmt.Errorf("upload failed: %w", err)
 	}
 
-	/*
-		// 上传后，使用 ListFiles 获取文件信息
-		files, _, err := q.ListFiles(objectName, "", 1)
-		if err != nil || len(files) == 0 {
-			return nil, fmt.Errorf("failed to retrieve file info: %v", err)
-		}
-
-		// 提取所需信息
-		fileInfo := files[0]
-		uploadResponse := &model.UploadResponse{
-			ContentLength: fileInfo.Fsize,
-			ETag:          fileInfo.Hash,
-			LastModified:  time.Unix(fileInfo.PutTime/1e7, 0).UTC(), // Convert to time
-		}
-	*/
-
-	return &putRet, nil
+	return size, nil
 }
 
 // GeneratePublicURL 生成公开访问的下载链接
@@ -92,29 +109,21 @@ func (q *QiniuCommoner) GeneratePublicURL(objectName string) string {
 
 // GeneratePrivateURL 生成私有访问的下载链接
 func (q *QiniuCommoner) GeneratePrivateURL(objectName string, expiryTime int64) string {
-	mac := auth.New(q.accessKey, q.secretKey)
+	mac := qbox.NewMac(q.accessKey, q.secretKey)
 	return storage.MakePrivateURL(mac, q.endpoint, objectName, expiryTime)
 }
 
 // Delete 从七牛云中删除文件
 func (q *QiniuCommoner) Delete(objectName string) error {
-	mac := auth.New(q.accessKey, q.secretKey)
-
-	bucketManager := storage.NewBucketManager(mac, &storage.Config{})
-
-	// 执行删除操作
-	err := bucketManager.Delete(q.bucketName, objectName)
-	if err != nil {
-		return fmt.Errorf("failed to delete file: %v", err)
-	}
-	return nil
+	mac := qbox.NewMac(q.accessKey, q.secretKey)
+	bucketManager := storage.NewBucketManager(mac, q.getConfig())
+	return bucketManager.Delete(q.bucketName, objectName)
 }
 
 // ListFiles 列出七牛云桶中的文件
 func (q *QiniuCommoner) ListFiles(prefix, marker string, limit int) ([]storage.ListItem, string, error) {
-	mac := auth.New(q.accessKey, q.secretKey)
-
-	bucketManager := storage.NewBucketManager(mac, &storage.Config{})
+	mac := qbox.NewMac(q.accessKey, q.secretKey)
+	bucketManager := storage.NewBucketManager(mac, q.getConfig())
 
 	// 获取文件列表
 	entries, _, nextMarker, hasNext, err := bucketManager.ListFiles(q.bucketName, prefix, "", marker, limit)
@@ -122,20 +131,17 @@ func (q *QiniuCommoner) ListFiles(prefix, marker string, limit int) ([]storage.L
 		return nil, "", fmt.Errorf("failed to list files: %v", err)
 	}
 
-	// 只返回文件项列表和下一页的 marker
 	if !hasNext {
 		nextMarker = ""
 	}
 
-	// 返回文件列表和下一页的游标
 	return entries, nextMarker, nil
 }
 
 // Copy 从七牛云中复制文件到新位置
 func (q *QiniuCommoner) Copy(srcKey, destKey string, force bool) error {
-	mac := auth.New(q.accessKey, q.secretKey)
-
-	bucketManager := storage.NewBucketManager(mac, &storage.Config{})
+	mac := qbox.NewMac(q.accessKey, q.secretKey)
+	bucketManager := storage.NewBucketManager(mac, q.getConfig())
 
 	// 执行复制操作
 	err := bucketManager.Copy(q.bucketName, srcKey, q.bucketName, destKey, force)
@@ -147,9 +153,8 @@ func (q *QiniuCommoner) Copy(srcKey, destKey string, force bool) error {
 
 // Move 移动文件到七牛云存储中的新位置
 func (q *QiniuCommoner) Move(srcObject, destObject string, force bool) error {
-	mac := auth.New(q.accessKey, q.secretKey)
-
-	bucketManager := storage.NewBucketManager(mac, &storage.Config{})
+	mac := qbox.NewMac(q.accessKey, q.secretKey)
+	bucketManager := storage.NewBucketManager(mac, q.getConfig())
 
 	// 执行移动操作
 	err := bucketManager.Move(q.bucketName, srcObject, q.bucketName, destObject, force)

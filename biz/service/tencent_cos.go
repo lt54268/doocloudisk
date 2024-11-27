@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	//"dootxcos/internal/model"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -79,29 +78,21 @@ func NewCosClient() *cos.Client {
 }
 
 // Upload 上传文件到腾讯云 COS
-func (u *CosUploader) Upload(fileData multipart.File, objectName string) (*cos.Response, error) {
+func (u *CosUploader) Upload(fileData multipart.File, objectName string) (int64, error) {
 	// 上传文件流
-	// resp, err := u.client.Object.Put(context.Background(), objectName, fileData, nil)
 	_, err := u.client.Object.Put(context.Background(), objectName, fileData, nil)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
-	// 调用 List 方法获取刚上传的文件信息
-	// lister := NewCosLister()                           // 创建 lister 实例
-	// fileList, _, err := lister.List(objectName, "", 0) // 传递 objectName 作为 prefix 参数
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to retrieve uploaded file info: %v", err)
-	// }
+	// 获取文件信息
+	objInfo, err := u.client.Object.Head(context.Background(), objectName, nil)
+	if err != nil {
+		return 0, fmt.Errorf("failed to retrieve object info: %v", err)
+	}
 
-	// 查找匹配的文件信息
-	// for _, file := range fileList {
-	// 	if file.Key == objectName {
-	// 		return resp, nil
-	// 	}
-	// }
-
-	return nil, fmt.Errorf("file not found after upload")
+	contentLength := objInfo.Response.ContentLength
+	return contentLength, nil
 }
 
 // Download 从 COS 下载文件

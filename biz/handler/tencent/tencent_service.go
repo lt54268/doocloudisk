@@ -4,8 +4,10 @@ package tencent
 
 import (
 	"context"
+	"strconv"
 
 	tencent "github.com/cloudisk/biz/model/tencent"
+	"github.com/cloudisk/biz/service"
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
 )
@@ -20,8 +22,20 @@ func Upload(ctx context.Context, c *app.RequestContext) {
 		c.String(consts.StatusBadRequest, err.Error())
 		return
 	}
-
+	user, _ := service.GetUserInfo(c.GetHeader("Token"))
+	form, err := c.MultipartForm()
+	if err != nil {
+		return
+	}
+	file := form.File["files"][0]
+	pid, _ := strconv.Atoi(req.GetPid())
+	cover, _ := strconv.ParseBool(req.GetCover())
+	webkitRelativePath := req.GetWebkitRelativePath()
+	item, _ := service.Upload(user, pid, webkitRelativePath, cover, *file)
 	resp := new(tencent.UploadResp)
+	resp.Data = append(resp.Data, item)
+	resp.Ret = 1
+	resp.Msg = file.Filename + " 上传成功"
 
 	c.JSON(consts.StatusOK, resp)
 }
