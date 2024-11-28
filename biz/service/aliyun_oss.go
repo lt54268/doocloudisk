@@ -153,7 +153,7 @@ func DownloadFile(objectName string) ([]byte, error) {
 func DownloadFileToLocal(objectName string) (string, error) {
 	bucketName := os.Getenv("OSS_BUCKET")
 	region := os.Getenv("OSS_REGION")
-	localDir := os.Getenv("OSS_DOWNLOAD_DIR") // 本地下载目录
+	localDir := os.Getenv("LOCAL_DOWNLOAD_DIR") // 本地下载目录
 
 	if bucketName == "" || region == "" || objectName == "" || localDir == "" {
 		return "", errors.New("invalid parameters: bucket name, region, object name, and local directory are required")

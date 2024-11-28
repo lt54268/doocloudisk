@@ -459,7 +459,7 @@ func DeleteLocalFileWithUser(user *User, fileID int32) error {
 	}
 
 	// 获取本地下载目录
-	localDir := os.Getenv("OSS_DOWNLOAD_DIR")
+	localDir := os.Getenv("LOCAL_DOWNLOAD_DIR")
 	if localDir == "" {
 		return errors.New("local download directory not configured")
 	}
