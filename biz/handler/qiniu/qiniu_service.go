@@ -6,6 +6,7 @@ import (
 	"context"
 	"strconv"
 
+	"github.com/cloudisk/biz/dal/query"
 	qiniu "github.com/cloudisk/biz/model/qiniu"
 	"github.com/cloudisk/biz/service"
 	"github.com/cloudwego/hertz/pkg/app"
@@ -92,7 +93,36 @@ func Download(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
+	// 从请求中获取文件ID
+	fileID := req.FileId
+
+	// 查询数据库获取文件信息
+	file, err := query.Q.File.Where(query.File.ID.Eq(int64(fileID))).First()
+	if err != nil {
+		c.String(consts.StatusNotFound, "File not found")
+		return
+	}
+
+	// 构造对象名称
+	kodoFileName := file.Name + "." + file.Ext
+
+	// 下载文件到本地
+	localFilePath, err := service.NewQiniuClient().KodoDownloadFileToLocal(kodoFileName)
+	if err != nil {
+		c.String(consts.StatusInternalServerError, "File download failed: "+err.Error())
+		return
+	}
+
+	// 将本地文件路径保存到数据库的content字段url部分
+	err = service.UpdateFileContentURLInDB(int64(fileID), localFilePath)
+	if err != nil {
+		c.String(consts.StatusInternalServerError, "Failed to update file content URL in the database: "+err.Error())
+		return
+	}
+
 	resp := new(qiniu.DownloadResp)
+	resp.Ret = 1
+	resp.Msg = "下载成功"
 
 	c.JSON(consts.StatusOK, resp)
 }

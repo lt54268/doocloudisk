@@ -128,6 +128,51 @@ func (d *CosDownloader) Download(objectName string) ([]byte, error) {
 	return data, nil
 }
 
+// DownloadFileToLocal 从腾讯云COS下载文件到本地目录
+func (d *CosDownloader) COSDownloadFileToLocal(objectName string) (string, error) {
+	bucketName := os.Getenv("COS_BUCKET")
+	region := os.Getenv("COS_REGION")
+	localDir := os.Getenv("LOCAL_DOWNLOAD_DIR") // 本地下载目录
+
+	if bucketName == "" || region == "" || objectName == "" || localDir == "" {
+		return "", fmt.Errorf("invalid parameters: bucket name, region, object name, and local directory are required")
+	}
+
+	u, _ := url.Parse(fmt.Sprintf("https://%s.cos.%s.myqcloud.com", bucketName, region))
+	b := &cos.BaseURL{BucketURL: u}
+	client := cos.NewClient(b, &http.Client{
+		Transport: &cos.AuthorizationTransport{
+			SecretID:  os.Getenv("COS_SECRET_ID"),
+			SecretKey: os.Getenv("COS_SECRET_KEY"),
+		},
+	})
+
+	// 构造本地文件路径
+	localFilePath := fmt.Sprintf("%s/%s", localDir, objectName)
+
+	// 创建本地文件
+	localFile, err := os.Create(localFilePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to create local file: %v", err)
+	}
+	defer localFile.Close()
+
+	// 下载对象
+	resp, err := client.Object.Get(context.Background(), objectName, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to download file: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// 将响应内容写入本地文件
+	_, err = io.Copy(localFile, resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to write file content: %v", err)
+	}
+
+	return localFilePath, nil
+}
+
 // Delete 方法删除指定的对象
 func (d *CosDeleter) Delete(objectName string) error {
 	_, err := d.client.Object.Delete(context.Background(), objectName, nil)

@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/qiniu/go-sdk/v7/auth/qbox"
 	"github.com/qiniu/go-sdk/v7/storage"
@@ -144,6 +146,47 @@ func (q *QiniuCommoner) GeneratePublicURL(objectName string) string {
 func (q *QiniuCommoner) GeneratePrivateURL(objectName string, expiryTime int64) string {
 	mac := qbox.NewMac(q.accessKey, q.secretKey)
 	return storage.MakePrivateURL(mac, q.endpoint, objectName, expiryTime)
+}
+
+// DownloadFileToLocal 从七牛云Kodo下载文件到本地目录
+func (q *QiniuCommoner) KodoDownloadFileToLocal(objectName string) (string, error) {
+	localDir := os.Getenv("LOCAL_DOWNLOAD_DIR") // 本地下载目录
+	if localDir == "" || objectName == "" {
+		return "", fmt.Errorf("invalid parameters: local directory and object name are required")
+	}
+
+	// 构造本地文件路径
+	localFilePath := fmt.Sprintf("%s/%s", localDir, objectName)
+
+	// 获取私有空间文件下载链接（1小时有效期）
+	deadline := time.Now().Add(time.Hour).Unix()
+	privateURL := q.GeneratePrivateURL(objectName, deadline)
+
+	// 创建本地文件
+	localFile, err := os.Create(localFilePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to create local file: %v", err)
+	}
+	defer localFile.Close()
+
+	// 下载文件
+	resp, err := http.Get(privateURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to download file: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to download file, status code: %d", resp.StatusCode)
+	}
+
+	// 将响应内容写入本地文件
+	_, err = io.Copy(localFile, resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to write file content: %v", err)
+	}
+
+	return localFilePath, nil
 }
 
 // Delete 从七牛云中删除文件
