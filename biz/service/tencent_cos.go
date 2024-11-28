@@ -95,6 +95,23 @@ func (u *CosUploader) Upload(fileData multipart.File, objectName string) (int64,
 	return contentLength, nil
 }
 
+// ReaderUpload 使用io.ReadCloser上传文件到腾讯云COS
+func (u *CosUploader) ReaderUpload(file io.ReadCloser, objectName string) (int64, error) {
+	// 上传文件流
+	_, err := u.client.Object.Put(context.Background(), objectName, file, nil)
+	if err != nil {
+		return 0, err
+	}
+
+	// 获取文件信息
+	objInfo, err := u.client.Object.Head(context.Background(), objectName, nil)
+	if err != nil {
+		return 0, fmt.Errorf("failed to retrieve object info: %v", err)
+	}
+
+	return objInfo.Response.ContentLength, nil
+}
+
 // Download 从 COS 下载文件
 func (d *CosDownloader) Download(objectName string) ([]byte, error) {
 	resp, err := d.client.Object.Get(context.Background(), objectName, nil)

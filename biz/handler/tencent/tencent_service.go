@@ -50,9 +50,18 @@ func OfficeUpload(ctx context.Context, c *app.RequestContext) {
 		c.String(consts.StatusBadRequest, err.Error())
 		return
 	}
-
+	user, _ := service.GetUserInfo(c.GetHeader("Token"))
+	id, _ := strconv.Atoi(req.GetId())
+	status, _ := strconv.Atoi(req.GetStatus())
+	key := req.GetKey()
+	urlPath := req.GetUrl()
+	err = service.OfficeUpload(user, id, status, key, urlPath)
+	if err != nil {
+		c.String(consts.StatusBadRequest, err.Error())
+		return
+	}
 	resp := new(tencent.OfficeUploadResp)
-
+	resp.Error = "1"
 	c.JSON(consts.StatusOK, resp)
 }
 

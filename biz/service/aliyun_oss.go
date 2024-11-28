@@ -77,7 +77,7 @@ func (u *OssUploader) Upload(file multipart.File, objectName string) (int64, err
 	return objectInfo.ContentLength, nil
 }
 
-func (u *OssUploader) ReaderUpload(file io.ReadCloser, objectName string, forbidOverwrite bool) (*oss.HeadObjectResult, error) {
+func (u *OssUploader) ReaderUpload(file io.ReadCloser, objectName string) (int64, error) {
 	cfg := oss.LoadDefaultConfig().
 		WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
 			config.OssAccessKeyId,
@@ -89,16 +89,15 @@ func (u *OssUploader) ReaderUpload(file io.ReadCloser, objectName string, forbid
 
 	// 创建上传请求
 	request := &oss.PutObjectRequest{
-		Bucket:          oss.Ptr(config.OssBucket),
-		Key:             oss.Ptr(objectName),
-		Body:            file,
-		ForbidOverwrite: oss.Ptr(fmt.Sprintf("%t", forbidOverwrite)), // 设置是否禁止覆盖
+		Bucket: oss.Ptr(config.OssBucket),
+		Key:    oss.Ptr(objectName),
+		Body:   file,
 	}
 
 	// 上传文件
 	_, err := client.PutObject(context.TODO(), request)
 	if err != nil {
-		return nil, fmt.Errorf("failed to upload object: %v", err)
+		return 0, fmt.Errorf("failed to upload object: %v", err)
 	}
 
 	// 上传成功后，获取文件信息
@@ -107,10 +106,10 @@ func (u *OssUploader) ReaderUpload(file io.ReadCloser, objectName string, forbid
 		Key:    oss.Ptr(objectName),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve object info: %v", err)
+		return 0, fmt.Errorf("failed to retrieve object info: %v", err)
 	}
 
-	return objectInfo, nil
+	return objectInfo.ContentLength, nil
 }
 
 // DownloadFile 从阿里云OSS下载文件

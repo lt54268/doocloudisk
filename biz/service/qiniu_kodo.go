@@ -102,6 +102,39 @@ func (q *QiniuCommoner) Upload(file multipart.File, objectName string) (int64, e
 	return size, nil
 }
 
+// ReaderUpload 使用io.ReadCloser上传文件到七牛云
+func (q *QiniuCommoner) ReaderUpload(file io.ReadCloser, objectName string) (int64, error) {
+	// 创建凭证
+	mac := qbox.NewMac(q.accessKey, q.secretKey)
+
+	// 创建上传策略
+	putPolicy := storage.PutPolicy{
+		Scope: q.bucketName,
+	}
+	upToken := putPolicy.UploadToken(mac)
+
+	// 创建上传管理器
+	formUploader := storage.NewFormUploader(q.getConfig())
+
+	// 定义上传返回值
+	ret := storage.PutRet{}
+
+	// 执行上传
+	err := formUploader.Put(context.Background(), &ret, upToken, objectName, file, -1, nil)
+	if err != nil {
+		return 0, fmt.Errorf("upload failed: %w", err)
+	}
+
+	// 获取文件信息
+	bucketManager := storage.NewBucketManager(mac, q.getConfig())
+	fileInfo, err := bucketManager.Stat(q.bucketName, objectName)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get file info: %w", err)
+	}
+
+	return fileInfo.Fsize, nil
+}
+
 // GeneratePublicURL 生成公开访问的下载链接
 func (q *QiniuCommoner) GeneratePublicURL(objectName string) string {
 	return storage.MakePublicURL(q.endpoint, objectName)

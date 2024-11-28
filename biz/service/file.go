@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math/rand"
 	"mime/multipart"
 	"net/http"
@@ -23,6 +24,7 @@ import (
 // CloudUploader 定义统一的云存储上传接口
 type CloudUploader interface {
 	Upload(file multipart.File, objectName string) (ContentLength int64, err error)
+	ReaderUpload(file io.ReadCloser, objectName string) (ContentLength int64, err error)
 }
 
 var (
@@ -423,10 +425,13 @@ func OfficeUpload(user *User, id int, status int, key string, urlStr string) err
 			return err
 		}
 		defer response.Body.Close()
-		res, err := alioss.ReaderUpload(response.Body, key, false)
+		
+		uploader := getCloudUploader()
+		contentLength, err := uploader.ReaderUpload(response.Body, key)
 		if err != nil {
 			return err
 		}
+
 		ip := os.Getenv("IP")
 		port := os.Getenv("PORT")
 		downloadURL := fmt.Sprintf("https://%s:%s/api/file/content/downloading?fileId=%d", ip, port, row.ID)
@@ -439,9 +444,9 @@ func OfficeUpload(user *User, id int, status int, key string, urlStr string) err
 		if err != nil {
 			return err
 		}
-		filecontent := gorm_gen.FileContent{Fid: row.ID, Content: string(jsonData), Text: "", Size: res.ContentLength, Userid: int64(user.Userid)}
+		filecontent := gorm_gen.FileContent{Fid: row.ID, Content: string(jsonData), Text: "", Size: contentLength, Userid: int64(user.Userid)}
 		query.Q.FileContent.Create(&filecontent)
-		row.Size = res.ContentLength
+		row.Size = contentLength
 		row.UpdatedAt = time.Now()
 		_, err = query.Q.File.Where(query.File.ID.Eq(row.ID)).Updates(row)
 		if err != nil {
