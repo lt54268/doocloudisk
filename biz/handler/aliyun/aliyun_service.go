@@ -109,7 +109,7 @@ func Download(ctx context.Context, c *app.RequestContext) {
 	ossFileName := file.Name + "." + file.Ext
 
 	// 从阿里云OSS下载文件到本地
-	localFilePath, err := service.OSSDownloadFileToLocal(ossFileName)
+	localFilePath, err := service.DownloadFileToLocal(ossFileName)
 	if err != nil {
 		c.String(consts.StatusInternalServerError, "File download failed: "+err.Error())
 		return

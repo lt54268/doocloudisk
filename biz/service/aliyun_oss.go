@@ -149,7 +149,7 @@ func DownloadFile(objectName string) ([]byte, error) {
 }
 
 // DownloadFileToLocal 从阿里云OSS下载文件到本地目录
-func OSSDownloadFileToLocal(objectName string) (string, error) {
+func DownloadFileToLocal(objectName string) (string, error) {
 	bucketName := os.Getenv("OSS_BUCKET")
 	region := os.Getenv("OSS_REGION")
 	localDir := os.Getenv("LOCAL_DOWNLOAD_DIR") // 本地下载目录

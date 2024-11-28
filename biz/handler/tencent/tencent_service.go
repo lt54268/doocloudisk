@@ -4,6 +4,8 @@ package tencent
 
 import (
 	"context"
+	"errors"
+	"os"
 	"strconv"
 
 	"github.com/cloudisk/biz/dal/query"
@@ -107,7 +109,7 @@ func Download(ctx context.Context, c *app.RequestContext) {
 	cosFileName := file.Name + "." + file.Ext
 
 	// 下载文件到本地
-	localFilePath, err := service.NewCosDownloader().COSDownloadFileToLocal(cosFileName)
+	localFilePath, err := service.NewCosDownloader().DownloadFileToLocal(cosFileName)
 	if err != nil {
 		c.String(consts.StatusInternalServerError, "File download failed: "+err.Error())
 		return
@@ -148,7 +150,7 @@ func Downloading(ctx context.Context, c *app.RequestContext) {
 
 	cosFileName := file.Name + "." + file.Ext
 
-	fileData, err := service.NewCosDownloader().Download(cosFileName)
+	fileData, err := service.NewCosDownloader().DownloadFile(cosFileName)
 	if err != nil {
 		c.String(consts.StatusInternalServerError, "File download failed: "+err.Error())
 		return
@@ -177,7 +179,25 @@ func Remove(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
+	user, _ := service.GetUserInfo(c.GetHeader("Token"))
+
+	// 从请求中获取文件ID
+	fileID := req.FileId
+
+	// 调用封装后的删除函数
+	err = service.DeleteLocalFileWithUser(user, fileID)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			c.String(consts.StatusNotFound, "File not found on local storage")
+		} else {
+			c.String(consts.StatusInternalServerError, "Local file deletion failed: "+err.Error())
+		}
+		return
+	}
+
 	resp := new(tencent.RemoveResp)
+	resp.Ret = 1
+	resp.Msg = "删除成功"
 
 	c.JSON(consts.StatusOK, resp)
 }

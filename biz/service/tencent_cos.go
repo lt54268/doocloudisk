@@ -113,7 +113,7 @@ func (u *CosUploader) ReaderUpload(file io.ReadCloser, objectName string) (int64
 }
 
 // Download 从 COS 下载文件
-func (d *CosDownloader) Download(objectName string) ([]byte, error) {
+func (d *CosDownloader) DownloadFile(objectName string) ([]byte, error) {
 	resp, err := d.client.Object.Get(context.Background(), objectName, nil)
 	if err != nil {
 		return nil, err
@@ -129,7 +129,7 @@ func (d *CosDownloader) Download(objectName string) ([]byte, error) {
 }
 
 // DownloadFileToLocal 从腾讯云COS下载文件到本地目录
-func (d *CosDownloader) COSDownloadFileToLocal(objectName string) (string, error) {
+func (d *CosDownloader) DownloadFileToLocal(objectName string) (string, error) {
 	bucketName := os.Getenv("COS_BUCKET")
 	region := os.Getenv("COS_REGION")
 	localDir := os.Getenv("LOCAL_DOWNLOAD_DIR") // 本地下载目录
@@ -142,8 +142,8 @@ func (d *CosDownloader) COSDownloadFileToLocal(objectName string) (string, error
 	b := &cos.BaseURL{BucketURL: u}
 	client := cos.NewClient(b, &http.Client{
 		Transport: &cos.AuthorizationTransport{
-			SecretID:  os.Getenv("COS_SECRET_ID"),
-			SecretKey: os.Getenv("COS_SECRET_KEY"),
+			SecretID:  os.Getenv("COS_SECRETID"),
+			SecretKey: os.Getenv("COS_SECRETKEY"),
 		},
 	})
 
@@ -259,8 +259,8 @@ func (c *CosCopier) CopyFile(srcBucket, srcObject, destBucket, destObject, srcRe
 
 	destClient := cos.NewClient(&cos.BaseURL{BucketURL: destURL}, &http.Client{
 		Transport: &cos.AuthorizationTransport{
-			SecretID:  os.Getenv("SECRETID"),
-			SecretKey: os.Getenv("SECRETKEY"),
+			SecretID:  os.Getenv("COS_SECRETID"),
+			SecretKey: os.Getenv("COS_SECRETKEY"),
 		},
 	})
 

@@ -149,7 +149,7 @@ func (q *QiniuCommoner) GeneratePrivateURL(objectName string, expiryTime int64) 
 }
 
 // Download 从七牛云下载文件（流式下载）
-func (q *QiniuCommoner) Download(objectName string) ([]byte, error) {
+func (q *QiniuCommoner) DownloadFile(objectName string) ([]byte, error) {
 	// 获取私有下载链接
 	deadline := time.Now().Add(time.Hour).Unix() // 1小时后过期
 	privateURL := q.GeneratePrivateURL(objectName, deadline)
@@ -176,7 +176,7 @@ func (q *QiniuCommoner) Download(objectName string) ([]byte, error) {
 }
 
 // DownloadFileToLocal 从七牛云Kodo下载文件到本地目录
-func (q *QiniuCommoner) KodoDownloadFileToLocal(objectName string) (string, error) {
+func (q *QiniuCommoner) DownloadFileToLocal(objectName string) (string, error) {
 	localDir := os.Getenv("LOCAL_DOWNLOAD_DIR") // 本地下载目录
 	if localDir == "" || objectName == "" {
 		return "", fmt.Errorf("invalid parameters: local directory and object name are required")
