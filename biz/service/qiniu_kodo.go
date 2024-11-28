@@ -148,6 +148,33 @@ func (q *QiniuCommoner) GeneratePrivateURL(objectName string, expiryTime int64) 
 	return storage.MakePrivateURL(mac, q.endpoint, objectName, expiryTime)
 }
 
+// Download 从七牛云下载文件（流式下载）
+func (q *QiniuCommoner) Download(objectName string) ([]byte, error) {
+	// 获取私有下载链接
+	deadline := time.Now().Add(time.Hour).Unix() // 1小时后过期
+	privateURL := q.GeneratePrivateURL(objectName, deadline)
+
+	// 创建HTTP请求
+	resp, err := http.Get(privateURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to download file: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// 检查响应状态
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to download file, status code: %d", resp.StatusCode)
+	}
+
+	// 读取响应体
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	return data, nil
+}
+
 // DownloadFileToLocal 从七牛云Kodo下载文件到本地目录
 func (q *QiniuCommoner) KodoDownloadFileToLocal(objectName string) (string, error) {
 	localDir := os.Getenv("LOCAL_DOWNLOAD_DIR") // 本地下载目录

@@ -138,9 +138,32 @@ func Downloading(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	resp := new(qiniu.DownloadResp)
+	fileID := req.FileId
 
-	c.JSON(consts.StatusOK, resp)
+	file, err := query.Q.File.Where(query.File.ID.Eq(int64(fileID))).First()
+	if err != nil {
+		c.String(consts.StatusNotFound, "File not found")
+		return
+	}
+
+	kodoFileName := file.Name + "." + file.Ext
+
+	fileData, err := service.NewQiniuClient().Download(kodoFileName)
+	if err != nil {
+		c.String(consts.StatusInternalServerError, "File download failed: "+err.Error())
+		return
+	}
+
+	// resp := new(qiniu.DownloadResp)
+
+	// c.JSON(consts.StatusOK, resp)
+
+	// 设置响应头，告知浏览器进行文件下载
+	c.Header("Content-Disposition", "attachment; filename="+file.Name+"."+file.Ext)
+	c.Header("Content-Type", "application/octet-stream") // 设置通用的文件类型，可以根据文件类型修改
+
+	// 返回文件内容
+	c.Data(consts.StatusOK, "application/octet-stream", fileData)
 }
 
 // Remove .
