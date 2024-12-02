@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
 	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -189,35 +189,74 @@ func saveBeforePP(f *gorm_gen.File) bool {
 }
 
 func HandleDuplicateName(f *gorm_gen.File) error {
-	// Check for existing file with the same name, pid, user ID, and extension
-	var count int64
-	_, err := query.Q.File.Where(query.File.Pid.Eq(f.Pid), query.File.Userid.Eq(f.Userid), query.File.Ext.Eq(f.Ext), query.File.Name.Eq(f.Name)).First()
+	// 检查是否存在同名文件
+	count, err := query.Q.File.Where(query.File.Pid.Eq(f.Pid),
+		query.File.Userid.Eq(f.Userid),
+		query.File.Ext.Eq(f.Ext),
+		query.File.Name.Eq(f.Name)).Count()
 	if err != nil {
 		return err
 	}
 
-	// Generate a new name
-	var nextNum int = 2
-	if matched, _ := regexp.MatchString(`(.*?)(\s+\(\d+\))*`, f.Name); matched {
-		var preName string
-		fmt.Sscanf(f.Name, "%s %d", &preName, &nextNum)
-		nextNum++
-
-		// Check for existing file with the new name
-		count, _ = query.Q.File.Where(query.File.Pid.Eq(f.Pid), query.File.Userid.Eq(f.Userid), query.File.Ext.Eq(f.Ext), query.File.Name.Eq(f.Name), query.File.Name.Like(fmt.Sprintf("%s%%", preName))).Count()
-		nextNum += int(count)
+	// 如果不存在同名文件，直接返回
+	if count == 0 {
+		return nil
 	}
 
-	newName := fmt.Sprintf("%s (%d)", f.Name, nextNum)
+	// 解析原始文件名
+	baseName := f.Name
+	re := regexp.MustCompile(`^(.*?)\s*(?:\((\d+)\))?$`)
+	matches := re.FindStringSubmatch(f.Name)
+	if len(matches) >= 2 {
+		baseName = matches[1]
+	}
 
-	// Check for existing file with the newly generated name
-	_, err = query.Q.File.Where(query.File.Pid.Eq(f.Pid), query.File.Userid.Eq(f.Userid), query.File.Ext.Eq(f.Ext), query.File.Name.Eq(f.Name)).First()
+	// 查找所有相关文件名的最大编号
+	var files []*gorm_gen.File
+	err = query.Q.File.Where(query.File.Pid.Eq(f.Pid),
+		query.File.Userid.Eq(f.Userid),
+		query.File.Ext.Eq(f.Ext),
+		query.File.Name.Like(baseName+"%")).Scan(&files)
 	if err != nil {
-		nextNum = rand.Intn(9000) + 100
-		newName = fmt.Sprintf("%s (%d)", f.Name, nextNum)
+		return err
 	}
+
+	// 找出最大编号
+	maxNum := 1
+	re = regexp.MustCompile(`\((\d+)\)$`)
+	for _, file := range files {
+		if matches := re.FindStringSubmatch(file.Name); len(matches) == 2 {
+			if num, err := strconv.Atoi(matches[1]); err == nil && num >= maxNum {
+				maxNum = num + 1
+			}
+		} else if file.Name == baseName {
+			// 如果存在没有编号的原始文件名，确保从2开始
+			if maxNum == 1 {
+				maxNum = 2
+			}
+		}
+	}
+
+	// 生成新文件名
+	newName := fmt.Sprintf("%s (%d)", baseName, maxNum)
+
+	// 再次检查新文件名是否存在（以防并发）
+	count, err = query.Q.File.Where(query.File.Pid.Eq(f.Pid),
+		query.File.Userid.Eq(f.Userid),
+		query.File.Ext.Eq(f.Ext),
+		query.File.Name.Eq(newName)).Count()
+	if err != nil {
+		return err
+	}
+
+	if count > 0 {
+		// 如果新文件名已存在，递归处理
+		f.Name = newName
+		return HandleDuplicateName(f)
+	}
+
 	f.Name = newName
-	return err
+	return nil
 }
 
 func getFileType(filename string) string {
@@ -336,14 +375,17 @@ func Upload(user *User, pid int, webkitRelativePath string, overwrite bool, file
 			return nil
 		})
 	}
+	tmp_file := gorm_gen.File{Pid: int64(pid), Ext: getFileNameExt(file.Filename), Name: getFileNameWithoutExt(file.Filename), Userid: user_id, CreatedID: int64(user.Userid)}
+	HandleDuplicateName(&tmp_file)
 	_file_open, _ := file.Open()
 	uploader := getCloudUploader()
-	contentLength, err := uploader.Upload(_file_open, file.Filename)
+	contentLength, err := uploader.Upload(_file_open, tmp_file.Name+"."+tmp_file.Ext)
 	if err != nil {
 		return nil, err
 	}
 	_file_open.Close()
 	filetype := getFileType(file.Filename)
+
 	_file := gorm_gen.File{Pid: int64(pid), Type: filetype, Name: getFileNameWithoutExt(file.Filename), Ext: getFileNameExt(file.Filename), Userid: user_id, CreatedID: int64(user.Userid), Size: contentLength}
 	var newfile *gorm_gen.File
 	if overwrite {
@@ -425,7 +467,7 @@ func OfficeUpload(user *User, id int, status int, key string, urlStr string) err
 			return err
 		}
 		defer response.Body.Close()
-		
+
 		uploader := getCloudUploader()
 		contentLength, err := uploader.ReaderUpload(response.Body, key)
 		if err != nil {
