@@ -450,6 +450,82 @@ func Upload(user *User, pid int, webkitRelativePath string, overwrite bool, file
 	return resp, nil
 }
 
+func Io_Upload(user *User, pid int, webkitRelativePath string, overwrite bool, file io.ReadCloser, filename string) (*common.File, error) {
+	uploader := getCloudUploader()
+	contentLength, err := uploader.ReaderUpload(file, filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	// 获取已存在的文件记录
+	existingFile, _ := query.Q.File.Where(query.File.Name.Eq(getFileNameWithoutExt(filename)),
+		query.File.Ext.Eq(getFileNameExt(filename)),
+		query.File.Pid.Eq(int64(pid))).First()
+
+	// 生成下载URL
+	ip := os.Getenv("IP")
+	port := os.Getenv("PORT")
+	downloadURL := fmt.Sprintf("https://%s:%s/api/file/content/downloading?fileId=%d", ip, port, existingFile.ID)
+
+	// 获取现有的content内容
+	fileContent, err := query.Q.FileContent.Where(query.FileContent.Fid.Eq(existingFile.ID)).First()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get file content: %v", err)
+	}
+
+	var newContent string
+	if fileContent.Content == "" {
+		// 如果原内容为空，直接创建新的JSON
+		newContent = fmt.Sprintf(`{"remote":"%s"}`, downloadURL)
+	} else {
+		// 如果原内容不为空，保持原有内容并在最后添加remote字段
+		// 移除最后的 }
+		trimmedContent := strings.TrimRight(strings.TrimSpace(fileContent.Content), "}")
+		if trimmedContent == "{" {
+			// 如果只有开括号，直接添加新字段
+			newContent = fmt.Sprintf(`{"remote":"%s"}`, downloadURL)
+		} else {
+			// 在原有内容后添加新字段
+			newContent = fmt.Sprintf(`%s,"remote":"%s"}`, trimmedContent, downloadURL)
+		}
+	}
+
+	// 更新file_contents表中的content字段
+	_, err = query.Q.FileContent.Where(query.FileContent.Fid.Eq(existingFile.ID)).
+		Updates(map[string]interface{}{
+			"content": newContent,
+		})
+	if err != nil {
+		return nil, fmt.Errorf("failed to update content field: %v", err)
+	}
+
+	fullName := existingFile.Name + "." + existingFile.Ext
+	if webkitRelativePath != "" {
+		fullName = webkitRelativePath
+	}
+	resp := &common.File{
+		ID:        existingFile.ID,
+		Pid:       existingFile.Pid,
+		Pids:      existingFile.Pids,
+		Cid:       existingFile.Cid,
+		Name:      existingFile.Name,
+		Type:      existingFile.Type,
+		Ext:       existingFile.Ext,
+		Size:      contentLength,
+		Userid:    existingFile.Userid,
+		Share:     existingFile.Share,
+		Pshare:    existingFile.Pshare,
+		CreatedID: existingFile.CreatedID,
+		CreatedAt: existingFile.CreatedAt.Format("YYYY-mm-dd HH:MM:SS"),
+		UpdatedAt: existingFile.UpdatedAt.Format("YYYY-mm-dd HH:MM:SS"),
+		FullName:  fullName,
+		Overwrite: B2i(overwrite),
+	}
+
+	return resp, nil
+}
+
 func OfficeUpload(user *User, id int, status int, key string, urlStr string) error {
 	row, err := permissionFind(id, user, 1)
 	if err != nil {
@@ -557,4 +633,29 @@ func UpdateFileContentURLInDB(fileID int64, localFilePath string) error {
 	}
 
 	return nil
+}
+
+// GetFileContentURL 获取文件内容的URL
+func GetFileContentURL(fileID int64) (string, error) {
+	content, err := query.Q.FileContent.Where(query.FileContent.Fid.Eq(fileID)).First()
+	if err != nil {
+		return "", err
+	}
+
+	var contentData map[string]interface{}
+	err = json.Unmarshal([]byte(content.Content), &contentData)
+	if err != nil {
+		return "", err
+	}
+
+	url, ok := contentData["url"].(string)
+	if !ok || url == "" {
+		return "", errors.New("url not found in content")
+	}
+
+	// 替换转义的斜杠
+	url = strings.ReplaceAll(url, "\\/", "/")
+
+	//return "public/" + url, nil
+	return "/Users/hitosea-005/Desktop/dootask_0.40.78/public/" + url, nil
 }

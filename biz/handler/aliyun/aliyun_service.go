@@ -203,3 +203,61 @@ func Downloading(ctx context.Context, c *app.RequestContext) {
 	// 返回文件内容
 	c.Data(consts.StatusOK, "application/octet-stream", fileData)
 }
+
+// IoUpload .
+// @router /api/file/content/io_upload [POST]
+func IoUpload(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req aliyun.IoUploadReq
+	err = c.BindAndValidate(&req)
+	if err != nil {
+		c.String(consts.StatusBadRequest, err.Error())
+		return
+	}
+
+	user, _ := service.GetUserInfo(c.GetHeader("Token"))
+	if user == nil {
+		c.String(consts.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	// 获取文件ID并查询文件信息
+	fileID := req.GetFileId()
+	file, err := query.Q.File.Where(query.File.ID.Eq(int64(fileID))).First()
+	if err != nil {
+		c.String(consts.StatusNotFound, "File not found")
+		return
+	}
+
+	// 获取文件本地路径
+	filePath, err := service.GetFileContentURL(int64(fileID))
+	if err != nil {
+		c.String(consts.StatusBadRequest, "Failed to get file path: "+err.Error())
+		return
+	}
+
+	// 打开文件
+	fileReader, err := os.Open(filePath)
+	if err != nil {
+		c.String(consts.StatusBadRequest, "Failed to open file: "+err.Error())
+		return
+	}
+	defer fileReader.Close()
+
+	pid, _ := strconv.Atoi(req.GetPid())
+	cover, _ := strconv.ParseBool(req.GetCover())
+	webkitRelativePath := req.GetWebkitRelativePath()
+
+	item, err := service.Io_Upload(user, pid, webkitRelativePath, cover, fileReader, file.Name+"."+file.Ext)
+	if err != nil {
+		c.String(consts.StatusInternalServerError, err.Error())
+		return
+	}
+
+	resp := new(aliyun.IoUploadResp)
+	resp.Data = append(resp.Data, item)
+	resp.Ret = 1
+	resp.Msg = file.Name + "." + file.Ext + " 上传成功"
+
+	c.JSON(consts.StatusOK, resp)
+}
