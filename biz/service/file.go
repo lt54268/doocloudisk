@@ -400,9 +400,8 @@ func Upload(user *User, pid int, webkitRelativePath string, overwrite bool, file
 	err = query.Q.Transaction(func(tx *query.Query) error {
 		HandleDuplicateName(newfile)
 		saveBeforePP(newfile)
-		ip := os.Getenv("IP")
-		port := os.Getenv("PORT")
-		downloadURL := fmt.Sprintf("https://%s:%s/api/file/content/downloading?fileId=%d", ip, port, newfile.ID)
+		baseURL := os.Getenv("NGINX_URL")
+		downloadURL := fmt.Sprintf("%s/api/file/content/downloading?fileId=%d", baseURL, newfile.ID)
 		content := map[string]interface{}{
 			"from":   "",
 			"type":   "document", // Assuming $type is "document"
@@ -464,9 +463,8 @@ func Io_Upload(user *User, pid int, webkitRelativePath string, overwrite bool, f
 		query.File.Pid.Eq(int64(pid))).First()
 
 	// 生成下载URL
-	ip := os.Getenv("IP")
-	port := os.Getenv("PORT")
-	downloadURL := fmt.Sprintf("https://%s:%s/api/file/content/downloading?fileId=%d", ip, port, existingFile.ID)
+	baseURL := os.Getenv("NGINX_URL")
+	downloadURL := fmt.Sprintf("%s/api/file/content/downloading?fileId=%d", baseURL, existingFile.ID)
 
 	// 获取现有的content内容
 	fileContent, err := query.Q.FileContent.Where(query.FileContent.Fid.Eq(existingFile.ID)).First()
@@ -550,9 +548,11 @@ func OfficeUpload(user *User, id int, status int, key string, urlStr string) err
 			return err
 		}
 
-		ip := os.Getenv("IP")
-		port := os.Getenv("PORT")
-		downloadURL := fmt.Sprintf("https://%s:%s/api/file/content/downloading?fileId=%d", ip, port, row.ID)
+		baseURL := os.Getenv("NGINX_URL")
+		if baseURL == "" {
+			baseURL = "http://localhost:8888"
+		}
+		downloadURL := fmt.Sprintf("%s/api/file/content/downloading?fileId=%d", baseURL, row.ID)
 		content := map[string]interface{}{
 			"from":   "",
 			"url":    "",
