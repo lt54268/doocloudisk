@@ -1665,8 +1665,8 @@ func (p *SaveReq) String() string {
 }
 
 type SaveResp struct {
-	Ret  int8                `thrift:"Ret,1" form:"Ret" json:"Ret" query:"Ret"`
-	Msg  string              `thrift:"Msg,2" form:"Msg" json:"Msg" query:"Msg"`
+	Ret  int8                `thrift:"ret,1" form:"ret" json:"ret" query:"ret"`
+	Msg  string              `thrift:"msg,2" form:"msg" json:"msg" query:"msg"`
 	Data *common.FileContent `thrift:"Data,3" form:"Data" json:"Data" query:"Data"`
 }
 
@@ -1695,8 +1695,8 @@ func (p *SaveResp) GetData() (v *common.FileContent) {
 }
 
 var fieldIDToName_SaveResp = map[int16]string{
-	1: "Ret",
-	2: "Msg",
+	1: "ret",
+	2: "msg",
 	3: "Data",
 }
 
@@ -1845,7 +1845,7 @@ WriteStructEndError:
 }
 
 func (p *SaveResp) writeField1(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("Ret", thrift.BYTE, 1); err != nil {
+	if err = oprot.WriteFieldBegin("ret", thrift.BYTE, 1); err != nil {
 		goto WriteFieldBeginError
 	}
 	if err := oprot.WriteByte(p.Ret); err != nil {
@@ -1862,7 +1862,7 @@ WriteFieldEndError:
 }
 
 func (p *SaveResp) writeField2(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("Msg", thrift.STRING, 2); err != nil {
+	if err = oprot.WriteFieldBegin("msg", thrift.STRING, 2); err != nil {
 		goto WriteFieldBeginError
 	}
 	if err := oprot.WriteString(p.Msg); err != nil {

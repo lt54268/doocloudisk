@@ -4,7 +4,6 @@ package aliyun
 
 import (
 	"context"
-	"errors"
 	"os"
 	"strconv"
 
@@ -95,32 +94,11 @@ func Download(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	// 从请求中获取文件ID
 	fileID := req.FileId
-
-	// 查询数据库获取文件信息
-	file, err := query.Q.File.Where(query.File.ID.Eq(int64(fileID))).First()
-	if err != nil {
-		c.String(consts.StatusNotFound, "File not found")
-		return
-	}
-
-	// 构造阿里云OSS对象名称
+	file, _ := query.Q.File.Where(query.File.ID.Eq(int64(fileID))).First()
 	ossFileName := file.Name + "." + file.Ext
-
-	// 从阿里云OSS下载文件到本地
-	localFilePath, err := service.DownloadFileToLocal(ossFileName)
-	if err != nil {
-		c.String(consts.StatusInternalServerError, "File download failed: "+err.Error())
-		return
-	}
-
-	// 将本地文件路径保存到数据库的content字段url部分
-	err = service.UpdateFileContentURLInDB(int64(fileID), localFilePath)
-	if err != nil {
-		c.String(consts.StatusInternalServerError, "Failed to update file content URL in the database: "+err.Error())
-		return
-	}
+	localFilePath, _ := service.DownloadFileToLocal(ossFileName)
+	_ = service.UpdateFileContentURLInDB(int64(fileID), localFilePath)
 
 	resp := new(aliyun.DownloadResp)
 	resp.Ret = 1
@@ -141,20 +119,8 @@ func Remove(ctx context.Context, c *app.RequestContext) {
 	}
 
 	user, _ := service.GetUserInfo(c.GetHeader("Token"))
-
-	// 从请求中获取文件ID
 	fileID := req.FileId
-
-	// 调用封装后的删除函数
-	err = service.DeleteLocalFileWithUser(user, fileID)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			c.String(consts.StatusNotFound, "File not found on local storage")
-		} else {
-			c.String(consts.StatusInternalServerError, "Local file deletion failed: "+err.Error())
-		}
-		return
-	}
+	_ = service.DeleteLocalFileWithUser(user, fileID)
 
 	resp := new(aliyun.RemoveResp)
 	resp.Ret = 1
@@ -175,20 +141,9 @@ func Downloading(ctx context.Context, c *app.RequestContext) {
 	}
 
 	fileID := req.FileId
-
-	file, err := query.Q.File.Where(query.File.ID.Eq(int64(fileID))).First()
-	if err != nil {
-		c.String(consts.StatusNotFound, "File not found")
-		return
-	}
-
+	file, _ := query.Q.File.Where(query.File.ID.Eq(int64(fileID))).First()
 	ossFileName := file.Name + "." + file.Ext
-
-	fileData, err := service.DownloadFile(ossFileName)
-	if err != nil {
-		c.String(consts.StatusInternalServerError, "File download failed: "+err.Error())
-		return
-	}
+	fileData, _ := service.DownloadFile(ossFileName)
 
 	// resp := new(aliyun.DownloadResp)
 	// resp.Ret = 1
@@ -196,11 +151,9 @@ func Downloading(ctx context.Context, c *app.RequestContext) {
 
 	// c.JSON(consts.StatusOK, resp)
 
-	// 设置响应头，告知浏览器进行文件下载
 	c.Header("Content-Disposition", "attachment; filename="+file.Name+"."+file.Ext)
 	c.Header("Content-Type", "application/octet-stream") // 设置通用的文件类型，可以根据文件类型修改
 
-	// 返回文件内容
 	c.Data(consts.StatusOK, "application/octet-stream", fileData)
 }
 
@@ -216,43 +169,15 @@ func IoUpload(ctx context.Context, c *app.RequestContext) {
 	}
 
 	user, _ := service.GetUserInfo(c.GetHeader("Token"))
-	if user == nil {
-		c.String(consts.StatusUnauthorized, "unauthorized")
-		return
-	}
-
-	// 获取文件ID并查询文件信息
 	fileID := req.GetFileId()
-	file, err := query.Q.File.Where(query.File.ID.Eq(int64(fileID))).First()
-	if err != nil {
-		c.String(consts.StatusNotFound, "File not found")
-		return
-	}
-
-	// 获取文件本地路径
-	filePath, err := service.GetFileContentURL(int64(fileID))
-	if err != nil {
-		c.String(consts.StatusBadRequest, "Failed to get file path: "+err.Error())
-		return
-	}
-
-	// 打开文件
-	fileReader, err := os.Open(filePath)
-	if err != nil {
-		c.String(consts.StatusBadRequest, "Failed to open file: "+err.Error())
-		return
-	}
+	file, _ := query.Q.File.Where(query.File.ID.Eq(int64(fileID))).First()
+	filePath, _ := service.GetFileContentURL(int64(fileID))
+	fileReader, _ := os.Open(filePath)
 	defer fileReader.Close()
-
 	pid, _ := strconv.Atoi(req.GetPid())
 	cover, _ := strconv.ParseBool(req.GetCover())
 	webkitRelativePath := req.GetWebkitRelativePath()
-
-	item, err := service.Io_Upload(user, pid, webkitRelativePath, cover, fileReader, file.Name+"."+file.Ext)
-	if err != nil {
-		c.String(consts.StatusInternalServerError, err.Error())
-		return
-	}
+	item, _ := service.Io_Upload(user, pid, webkitRelativePath, cover, fileReader, file.Name+"."+file.Ext)
 
 	resp := new(aliyun.IoUploadResp)
 	resp.Data = append(resp.Data, item)

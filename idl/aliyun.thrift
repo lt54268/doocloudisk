@@ -73,8 +73,8 @@ struct SaveReq {
 }
 
 struct SaveResp {
-    1: i8 Ret;
-    2: string Msg;
+    1: i8 ret;
+    2: string msg;
     3: common.FileContent Data;
 }
 

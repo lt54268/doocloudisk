@@ -55,3 +55,8 @@ func _uploadMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
+
+func _iouploadMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}

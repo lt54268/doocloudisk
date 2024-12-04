@@ -4,7 +4,6 @@ package qiniu
 
 import (
 	"context"
-	"errors"
 	"os"
 	"strconv"
 
@@ -95,32 +94,11 @@ func Download(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	// 从请求中获取文件ID
 	fileID := req.FileId
-
-	// 查询数据库获取文件信息
-	file, err := query.Q.File.Where(query.File.ID.Eq(int64(fileID))).First()
-	if err != nil {
-		c.String(consts.StatusNotFound, "File not found")
-		return
-	}
-
-	// 构造对象名称
+	file, _ := query.Q.File.Where(query.File.ID.Eq(int64(fileID))).First()
 	kodoFileName := file.Name + "." + file.Ext
-
-	// 下载文件到本地
-	localFilePath, err := service.NewQiniuClient().DownloadFileToLocal(kodoFileName)
-	if err != nil {
-		c.String(consts.StatusInternalServerError, "File download failed: "+err.Error())
-		return
-	}
-
-	// 将本地文件路径保存到数据库的content字段url部分
-	err = service.UpdateFileContentURLInDB(int64(fileID), localFilePath)
-	if err != nil {
-		c.String(consts.StatusInternalServerError, "Failed to update file content URL in the database: "+err.Error())
-		return
-	}
+	localFilePath, _ := service.NewQiniuClient().DownloadFileToLocal(kodoFileName)
+	_ = service.UpdateFileContentURLInDB(int64(fileID), localFilePath)
 
 	resp := new(qiniu.DownloadResp)
 	resp.Ret = 1
@@ -141,30 +119,17 @@ func Downloading(ctx context.Context, c *app.RequestContext) {
 	}
 
 	fileID := req.FileId
-
-	file, err := query.Q.File.Where(query.File.ID.Eq(int64(fileID))).First()
-	if err != nil {
-		c.String(consts.StatusNotFound, "File not found")
-		return
-	}
-
+	file, _ := query.Q.File.Where(query.File.ID.Eq(int64(fileID))).First()
 	kodoFileName := file.Name + "." + file.Ext
-
-	fileData, err := service.NewQiniuClient().DownloadFile(kodoFileName)
-	if err != nil {
-		c.String(consts.StatusInternalServerError, "File download failed: "+err.Error())
-		return
-	}
+	fileData, _ := service.NewQiniuClient().DownloadFile(kodoFileName)
 
 	// resp := new(qiniu.DownloadResp)
 
 	// c.JSON(consts.StatusOK, resp)
 
-	// 设置响应头，告知浏览器进行文件下载
 	c.Header("Content-Disposition", "attachment; filename="+file.Name+"."+file.Ext)
 	c.Header("Content-Type", "application/octet-stream") // 设置通用的文件类型，可以根据文件类型修改
 
-	// 返回文件内容
 	c.Data(consts.StatusOK, "application/octet-stream", fileData)
 }
 
@@ -180,24 +145,42 @@ func Remove(ctx context.Context, c *app.RequestContext) {
 	}
 
 	user, _ := service.GetUserInfo(c.GetHeader("Token"))
-
-	// 从请求中获取文件ID
 	fileID := req.FileId
-
-	// 调用封装后的删除函数
-	err = service.DeleteLocalFileWithUser(user, fileID)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			c.String(consts.StatusNotFound, "File not found on local storage")
-		} else {
-			c.String(consts.StatusInternalServerError, "Local file deletion failed: "+err.Error())
-		}
-		return
-	}
+	_ = service.DeleteLocalFileWithUser(user, fileID)
 
 	resp := new(qiniu.RemoveResp)
 	resp.Ret = 1
 	resp.Msg = "删除成功"
+
+	c.JSON(consts.StatusOK, resp)
+}
+
+// IoUpload .
+// @router /api/file/content/io_upload [POST]
+func IoUpload(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req qiniu.IoUploadReq
+	err = c.BindAndValidate(&req)
+	if err != nil {
+		c.String(consts.StatusBadRequest, err.Error())
+		return
+	}
+
+	user, _ := service.GetUserInfo(c.GetHeader("Token"))
+	fileID := req.GetFileId()
+	file, _ := query.Q.File.Where(query.File.ID.Eq(int64(fileID))).First()
+	filePath, _ := service.GetFileContentURL(int64(fileID))
+	fileReader, _ := os.Open(filePath)
+	defer fileReader.Close()
+	pid, _ := strconv.Atoi(req.GetPid())
+	cover, _ := strconv.ParseBool(req.GetCover())
+	webkitRelativePath := req.GetWebkitRelativePath()
+	item, _ := service.Io_Upload(user, pid, webkitRelativePath, cover, fileReader, file.Name+"."+file.Ext)
+
+	resp := new(qiniu.IoUploadResp)
+	resp.Data = append(resp.Data, item)
+	resp.Ret = 1
+	resp.Msg = file.Name + "." + file.Ext + " 上传成功"
 
 	c.JSON(consts.StatusOK, resp)
 }
