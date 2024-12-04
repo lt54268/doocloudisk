@@ -1,0 +1,59 @@
+version: '3'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8888:8888"
+    environment:
+      # 基础配置
+      - PORT=8888
+      - NGINX_URL=${NGINX_URL}
+      - LOCAL_DOWNLOAD_DIR=/app/downloads
+      - CLOUD_PROVIDER=${CLOUD_PROVIDER}  # 可选: aliyun, qiniu, tencent
+      - DB_DSN=${DB_DSN}
+      
+      # 阿里云 OSS 配置
+      - OSS_REGION=${OSS_REGION}
+      - OSS_ENDPOINT=${OSS_ENDPOINT}
+      - OSS_BUCKET=${OSS_BUCKET}
+      - OSS_ACCESS_KEY_ID=${OSS_ACCESS_KEY_ID}
+      - OSS_ACCESS_KEY_SECRET=${OSS_ACCESS_KEY_SECRET}
+      
+      # 腾讯云 COS 配置
+      - COS_REGION=${COS_REGION}
+      - COS_BUCKET=${COS_BUCKET}
+      - COS_SECRETID=${COS_SECRETID}
+      - COS_SECRETKEY=${COS_SECRETKEY}
+      
+      # 七牛云 Kodo 配置
+      - QINIU_ACCESSKEY=${QINIU_ACCESSKEY}
+      - QINIU_SECRETKEY=${QINIU_SECRETKEY}
+      - QINIU_BUCKET=${QINIU_BUCKET}
+      - QINIU_ENDPOINT=${QINIU_ENDPOINT}
+      - QINIU_ZONE=${QINIU_ZONE}
+    volumes:
+      - ./downloads:/app/downloads
+    depends_on:
+      - mysql
+    networks:
+      - app-network
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      - MYSQL_ROOT_PASSWORD=password
+      - MYSQL_DATABASE=dootask
+    volumes:
+      - mysql-data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    networks:
+      - app-network
+
+volumes:
+  mysql-data:
+
+networks:
+  app-network:
+    driver: bridge
