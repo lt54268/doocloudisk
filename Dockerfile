@@ -18,7 +18,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o main .
 # 使用轻量级的基础镜像
 FROM alpine:latest
 
-WORKDIR /app
+# 设置工作目录
+ENV APP_WORKDIR=/app
+WORKDIR ${APP_WORKDIR}
 
 # 安装必要的运行时依赖
 RUN apk add --no-cache ca-certificates tzdata

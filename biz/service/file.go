@@ -635,6 +635,13 @@ func UpdateFileContentURLInDB(fileID int64, localFilePath string) error {
 	return nil
 }
 
+func GetWorkDir() string {
+	if workDir := os.Getenv("APP_WORKDIR"); workDir != "" {
+		return workDir
+	}
+	return "/app" // 默认工作目录
+}
+
 // GetFileContentURL 获取文件内容的URL
 func GetFileContentURL(fileID int64) (string, error) {
 	content, err := query.Q.FileContent.Where(query.FileContent.Fid.Eq(fileID)).First()
@@ -656,6 +663,9 @@ func GetFileContentURL(fileID int64) (string, error) {
 	// 替换转义的斜杠
 	url = strings.ReplaceAll(url, "\\/", "/")
 
-	//return "public/" + url, nil
-	return "/Users/hitosea-005/Desktop/dootask_0.40.78/public/" + url, nil
+	// 测试
+	// return "/Users/hitosea-005/Desktop/dootask_0.40.78/public/" + url, nil
+
+	return GetWorkDir() + "/" + url, nil
+
 }

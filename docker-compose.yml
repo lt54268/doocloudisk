@@ -12,6 +12,7 @@ services:
       - LOCAL_DOWNLOAD_DIR=/app/downloads
       - CLOUD_PROVIDER=${CLOUD_PROVIDER}  # 可选: aliyun, qiniu, tencent
       - DB_DSN=${DB_DSN}
+      - APP_WORKDIR=/app  # 工作目录配置
       
       # 阿里云 OSS 配置
       - OSS_REGION=${OSS_REGION}
@@ -33,7 +34,7 @@ services:
       - QINIU_ENDPOINT=${QINIU_ENDPOINT}
       - QINIU_ZONE=${QINIU_ZONE}
     volumes:
-      - ./downloads:/app/downloads
+      - ./uploads:/app/uploads
     depends_on:
       - mysql
     networks:
