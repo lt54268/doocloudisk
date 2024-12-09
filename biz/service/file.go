@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -400,7 +401,7 @@ func Upload(user *User, pid int, webkitRelativePath string, overwrite bool, file
 	err = query.Q.Transaction(func(tx *query.Query) error {
 		HandleDuplicateName(newfile)
 		saveBeforePP(newfile)
-		baseURL := os.Getenv("NGINX_URL")
+		baseURL := os.Getenv("SERVER_URL")
 		downloadURL := fmt.Sprintf("%s/api/file/content/downloading?fileId=%d", baseURL, newfile.ID)
 		content := map[string]interface{}{
 			"from":   "",
@@ -463,7 +464,7 @@ func Io_Upload(user *User, pid int, webkitRelativePath string, overwrite bool, f
 		query.File.Pid.Eq(int64(pid))).First()
 
 	// 生成下载URL
-	baseURL := os.Getenv("NGINX_URL")
+	baseURL := os.Getenv("SERVER_URL")
 	downloadURL := fmt.Sprintf("%s/api/file/content/downloading?fileId=%d", baseURL, existingFile.ID)
 
 	// 获取现有的content内容
@@ -532,31 +533,47 @@ func OfficeUpload(user *User, id int, status int, key string, urlStr string) err
 	if status == 2 {
 		parsedURL, err := url.Parse(urlStr)
 		if err != nil {
-			fmt.Println("Error parsing URL:", err)
+			fmt.Printf("Failed to parse URL: %v\n", err)
 			return err
 		}
-		from := fmt.Sprintf("http://%s.3%s?%s", os.Getenv("APP_IPPR"), parsedURL.Path, parsedURL.RawQuery)
-		response, err := http.Get(from)
+
+		q := parsedURL.Query()
+		q.Set("filename", key)
+		parsedURL.RawQuery = q.Encode()
+
+		var loadURL string
+
+		// 开发环境
+		loadURL = parsedURL.String()
+
+		// 正式环境
+		// loadURL = fmt.Sprintf("http://%s.3%s?%s", os.Getenv("APP_IPPR"), parsedURL.Path, parsedURL.RawQuery)
+
+		fmt.Printf("Downloading from URL: %s\n", loadURL)
+		response, err := http.Get(loadURL)
 		if err != nil {
-			return err
+			fmt.Printf("Download failed: %v\n", err)
+			return fmt.Errorf("failed to download file: %v", err)
 		}
 		defer response.Body.Close()
 
 		uploader := getCloudUploader()
 		contentLength, err := uploader.ReaderUpload(response.Body, key)
 		if err != nil {
-			return err
+			fmt.Printf("Cloud upload failed: %v\n", err)
+			return fmt.Errorf("failed to upload to cloud: %v", err)
 		}
 
-		baseURL := os.Getenv("NGINX_URL")
+		log.Printf("office文件上传成功: %s", key)
+
+		baseURL := os.Getenv("SERVER_URL")
 		if baseURL == "" {
 			baseURL = "http://localhost:8888"
 		}
 		downloadURL := fmt.Sprintf("%s/api/file/content/downloading?fileId=%d", baseURL, row.ID)
 		content := map[string]interface{}{
-			"from":   "",
-			"url":    "",
-			"remote": downloadURL,
+			"from": loadURL,
+			"url":  downloadURL,
 		}
 		jsonData, err := json.Marshal(content)
 		if err != nil {
@@ -660,12 +677,12 @@ func GetFileContentURL(fileID int64) (string, error) {
 		return "", errors.New("url not found in content")
 	}
 
-	// 替换转义的斜杠
 	url = strings.ReplaceAll(url, "\\/", "/")
 
-	// 测试
-	// return "/Users/hitosea-005/Desktop/dootask_0.40.78/public/" + url, nil
+	// 开发环境
+	return "/Users/hitosea-005/Desktop/dootask_0.40.78/public/" + url, nil
 
-	return GetWorkDir() + "/" + url, nil
+	// 正式环境
+	// return GetWorkDir() + "/" + url, nil
 
 }

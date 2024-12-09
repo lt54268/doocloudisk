@@ -58,27 +58,35 @@ func Upload(ctx context.Context, c *app.RequestContext) {
 }
 
 // OfficeUpload .
-// @router /api/file/content/office [POST]
+// @router /api/file/content/office [GET、POST]
 func OfficeUpload(ctx context.Context, c *app.RequestContext) {
 	var err error
 	var req aliyun.OfficeUploadReq
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
-		return
+
+	fileId := c.Query("id")
+	if id, err := strconv.Atoi(fileId); err == nil {
+		req.Id = int32(id)
+	}
+	if len(c.Request.Body()) > 0 {
+		if err = c.BindAndValidate(&req); err != nil {
+			c.String(consts.StatusBadRequest, err.Error())
+			return
+		}
 	}
 	user, _ := service.GetUserInfo(c.GetHeader("Token"))
-	id, _ := strconv.Atoi(req.GetId())
-	status, _ := strconv.Atoi(req.GetStatus())
-	key := req.GetKey()
-	urlPath := req.GetUrl()
-	err = service.OfficeUpload(user, id, status, key, urlPath)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
-		return
+
+	switch req.GetStatus() {
+	case 2: // 文档已保存
+		err = service.OfficeUpload(user, int(req.GetId()), int(req.GetStatus()),
+			req.GetKey(), req.GetUrl())
+		if err != nil {
+			c.String(consts.StatusBadRequest, err.Error())
+			return
+		}
 	}
+
 	resp := new(aliyun.OfficeUploadResp)
-	resp.Error = "1"
+	resp.Error = 0
 	c.JSON(consts.StatusOK, resp)
 }
 

@@ -60,3 +60,8 @@ func _iouploadMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
+
+func _officeupload0Mw() []app.HandlerFunc {
+	// your code...
+	return nil
+}

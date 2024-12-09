@@ -57,14 +57,17 @@ struct IoUploadResp {
 }
 
 struct OfficeUploadReq {
-    1: string Id (api.query="id"); 
-    2: string Status (api.query="status");
-    3: string Key (api.query="key");
-    4: string Url (api.query="url");
+    1: i32 Id (api.query="id", api.json="id"); 
+    2: i32 Status (api.query="status", api.json="status");
+    3: string Key (api.query="key", api.json="key");
+    4: string Url (api.query="url", api.json="url");
+    5: optional string Token (api.json="token");                // 新增 token 字段
+    6: optional list<string> Users (api.json="users");          // 新增 users 字段
+    7: optional list<map<string,string>> Actions (api.json="actions");  // 新增 actions 字段 
 }
 
 struct OfficeUploadResp {
-    1: string error;
+    1: i32 error;
 }
 
 struct SaveReq {
@@ -101,7 +104,7 @@ struct RemoveResp {
 service AliyunService {
     UploadResp upload(1: UploadReq request) (api.post="/api/file/content/upload");
     IoUploadResp io_upload(1: IoUploadReq request) (api.post="/api/file/content/io_upload");
-    OfficeUploadResp office_upload(1: OfficeUploadReq request) (api.post="/api/file/content/office");
+    OfficeUploadResp office_upload(1: OfficeUploadReq request) (api.get="/api/file/content/office", api.post="/api/file/content/office");
     SaveResp save(1: SaveReq request) (api.post="/api/file/content/save");
     DownloadResp download(1: DownloadReq request) (api.get="/api/file/content/download");
     DownloadResp downloading(1: DownloadReq request) (api.get="/api/file/content/downloading");

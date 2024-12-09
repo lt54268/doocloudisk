@@ -1058,10 +1058,10 @@ func (p *IoUploadResp) String() string {
 }
 
 type OfficeUploadReq struct {
-	Id     string `thrift:"Id,1" json:"Id" query:"id"`
-	Status string `thrift:"Status,2" json:"Status" query:"status"`
-	Key    string `thrift:"Key,3" json:"Key" query:"key"`
-	Url    string `thrift:"Url,4" json:"Url" query:"url"`
+	Id     int32  `thrift:"Id,1" form:"id" json:"Id" query:"id"`
+	Status int32  `thrift:"Status,2" form:"status" json:"Status" query:"status"`
+	Key    string `thrift:"Key,3" form:"key" json:"Key" query:"key"`
+	Url    string `thrift:"Url,4" form:"url" json:"Url" query:"url"`
 }
 
 func NewOfficeUploadReq() *OfficeUploadReq {
@@ -1071,11 +1071,11 @@ func NewOfficeUploadReq() *OfficeUploadReq {
 func (p *OfficeUploadReq) InitDefault() {
 }
 
-func (p *OfficeUploadReq) GetId() (v string) {
+func (p *OfficeUploadReq) GetId() (v int32) {
 	return p.Id
 }
 
-func (p *OfficeUploadReq) GetStatus() (v string) {
+func (p *OfficeUploadReq) GetStatus() (v int32) {
 	return p.Status
 }
 
@@ -1114,7 +1114,7 @@ func (p *OfficeUploadReq) Read(iprot thrift.TProtocol) (err error) {
 
 		switch fieldId {
 		case 1:
-			if fieldTypeId == thrift.STRING {
+			if fieldTypeId == thrift.I32 {
 				if err = p.ReadField1(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -1122,7 +1122,7 @@ func (p *OfficeUploadReq) Read(iprot thrift.TProtocol) (err error) {
 				goto SkipFieldError
 			}
 		case 2:
-			if fieldTypeId == thrift.STRING {
+			if fieldTypeId == thrift.I32 {
 				if err = p.ReadField2(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -1176,8 +1176,8 @@ ReadStructEndError:
 
 func (p *OfficeUploadReq) ReadField1(iprot thrift.TProtocol) error {
 
-	var _field string
-	if v, err := iprot.ReadString(); err != nil {
+	var _field int32
+	if v, err := iprot.ReadI32(); err != nil {
 		return err
 	} else {
 		_field = v
@@ -1187,8 +1187,8 @@ func (p *OfficeUploadReq) ReadField1(iprot thrift.TProtocol) error {
 }
 func (p *OfficeUploadReq) ReadField2(iprot thrift.TProtocol) error {
 
-	var _field string
-	if v, err := iprot.ReadString(); err != nil {
+	var _field int32
+	if v, err := iprot.ReadI32(); err != nil {
 		return err
 	} else {
 		_field = v
@@ -1261,10 +1261,10 @@ WriteStructEndError:
 }
 
 func (p *OfficeUploadReq) writeField1(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("Id", thrift.STRING, 1); err != nil {
+	if err = oprot.WriteFieldBegin("Id", thrift.I32, 1); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteString(p.Id); err != nil {
+	if err := oprot.WriteI32(p.Id); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {
@@ -1278,10 +1278,10 @@ WriteFieldEndError:
 }
 
 func (p *OfficeUploadReq) writeField2(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("Status", thrift.STRING, 2); err != nil {
+	if err = oprot.WriteFieldBegin("Status", thrift.I32, 2); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteString(p.Status); err != nil {
+	if err := oprot.WriteI32(p.Status); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {
@@ -1337,7 +1337,7 @@ func (p *OfficeUploadReq) String() string {
 }
 
 type OfficeUploadResp struct {
-	Error string `thrift:"error,1" form:"error" json:"error" query:"error"`
+	Error int32 `thrift:"error,1" form:"error" json:"error" query:"error"`
 }
 
 func NewOfficeUploadResp() *OfficeUploadResp {
@@ -1347,7 +1347,7 @@ func NewOfficeUploadResp() *OfficeUploadResp {
 func (p *OfficeUploadResp) InitDefault() {
 }
 
-func (p *OfficeUploadResp) GetError() (v string) {
+func (p *OfficeUploadResp) GetError() (v int32) {
 	return p.Error
 }
 
@@ -1375,7 +1375,7 @@ func (p *OfficeUploadResp) Read(iprot thrift.TProtocol) (err error) {
 
 		switch fieldId {
 		case 1:
-			if fieldTypeId == thrift.STRING {
+			if fieldTypeId == thrift.I32 {
 				if err = p.ReadField1(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -1413,8 +1413,8 @@ ReadStructEndError:
 
 func (p *OfficeUploadResp) ReadField1(iprot thrift.TProtocol) error {
 
-	var _field string
-	if v, err := iprot.ReadString(); err != nil {
+	var _field int32
+	if v, err := iprot.ReadI32(); err != nil {
 		return err
 	} else {
 		_field = v
@@ -1453,10 +1453,10 @@ WriteStructEndError:
 }
 
 func (p *OfficeUploadResp) writeField1(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("error", thrift.STRING, 1); err != nil {
+	if err = oprot.WriteFieldBegin("error", thrift.I32, 1); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteString(p.Error); err != nil {
+	if err := oprot.WriteI32(p.Error); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {
