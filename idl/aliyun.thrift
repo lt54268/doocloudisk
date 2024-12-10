@@ -61,9 +61,6 @@ struct OfficeUploadReq {
     2: i32 Status (api.query="status", api.json="status");
     3: string Key (api.query="key", api.json="key");
     4: string Url (api.query="url", api.json="url");
-    5: optional string Token (api.json="token");                // 新增 token 字段
-    6: optional list<string> Users (api.json="users");          // 新增 users 字段
-    7: optional list<map<string,string>> Actions (api.json="actions");  // 新增 actions 字段 
 }
 
 struct OfficeUploadResp {

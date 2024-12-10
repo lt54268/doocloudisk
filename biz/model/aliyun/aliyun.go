@@ -1058,10 +1058,10 @@ func (p *IoUploadResp) String() string {
 }
 
 type OfficeUploadReq struct {
-	Id     int32  `thrift:"Id,1" form:"id" json:"Id" query:"id"`
-	Status int32  `thrift:"Status,2" form:"status" json:"Status" query:"status"`
-	Key    string `thrift:"Key,3" form:"key" json:"Key" query:"key"`
-	Url    string `thrift:"Url,4" form:"url" json:"Url" query:"url"`
+	Id     int32  `thrift:"Id,1" json:"Id" query:"id"`
+	Status int32  `thrift:"Status,2" json:"Status" query:"status"`
+	Key    string `thrift:"Key,3" json:"Key" query:"key"`
+	Url    string `thrift:"Url,4" json:"Url" query:"url"`
 }
 
 func NewOfficeUploadReq() *OfficeUploadReq {
