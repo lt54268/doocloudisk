@@ -4,8 +4,11 @@ package aliyun
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/cloudisk/biz/dal/query"
@@ -118,13 +121,43 @@ func Download(ctx context.Context, c *app.RequestContext) {
 	}
 
 	fileID := req.FileId
-	file, _ := query.Q.File.Where(query.File.ID.Eq(int64(fileID))).First()
-	ossFileName := file.Name + "." + file.Ext
-	log.Printf("开始保存文件: %s, ID: %d", ossFileName, fileID)
 
-	localFilePath, err := service.DownloadFileToLocal(ossFileName)
+	// 查询最新的文件内容记录
+	fileContent, _ := query.Q.FileContent.
+		Where(query.FileContent.Fid.Eq(int64(fileID))).
+		Order(query.FileContent.UpdatedAt.Desc()).
+		First()
+
+	// 解析content字段获取cloud_url
+	var content map[string]interface{}
+	_ = json.Unmarshal([]byte(fileContent.Content), &content)
+
+	cloudURL, _ := content["cloud_url"].(string)
+
+	// 获取文件基本信息
+	file, _ := query.Q.File.
+		Where(query.File.ID.Eq(int64(fileID))).
+		First()
+
+	// 获取本地下载目录
+	localDir := os.Getenv("LOCAL_DOWNLOAD_DIR")
+	if localDir == "" {
+		log.Printf("本地保存目录未配置")
+		resp := new(aliyun.DownloadResp)
+		resp.Ret = 0
+		resp.Msg = "系统配置错误: 本地保存目录未配置"
+		c.JSON(consts.StatusInternalServerError, resp)
+		return
+	}
+
+	// 构造本地文件路径
+	localFileName := fmt.Sprintf("%d_%s.%s", fileID, file.Name, file.Ext)
+	localFilePath := filepath.Join(localDir, localFileName)
+
+	// 下载文件
+	err = service.DownloadFileFromURL(cloudURL, localFilePath)
 	if err != nil {
-		log.Printf("保存文件失败: %s, 错误: %v", ossFileName, err)
+		log.Printf("下载文件失败: %s, 错误: %v", cloudURL, err)
 		resp := new(aliyun.DownloadResp)
 		resp.Ret = 0
 		resp.Msg = "保存文件失败: " + err.Error()
@@ -132,6 +165,7 @@ func Download(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
+	// 更新数据库中的本地文件路径
 	err = service.UpdateFileContentURLInDB(int64(fileID), localFilePath)
 	if err != nil {
 		log.Printf("更新文件URL失败, ID: %d, 错误: %v", fileID, err)
@@ -142,7 +176,7 @@ func Download(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
-	log.Printf("文件保存成功: %s, ID: %d", ossFileName, fileID)
+	log.Printf("文件保存成功: %s, ID: %d", localFileName, fileID)
 
 	resp := new(aliyun.DownloadResp)
 	resp.Ret = 1

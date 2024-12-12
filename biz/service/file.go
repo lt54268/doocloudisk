@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"path/filepath"
 
 	"github.com/cloudisk/biz/dal/query"
 	"github.com/cloudisk/biz/model/common"
@@ -402,13 +403,13 @@ func Upload(user *User, pid int, webkitRelativePath string, overwrite bool, file
 		HandleDuplicateName(newfile)
 		saveBeforePP(newfile)
 		baseURL := os.Getenv("SERVER_URL")
-		downloadURL := fmt.Sprintf("http://%s/api/file/content/downloading?fileId=%d", baseURL, newfile.ID)
+		downloadURL := fmt.Sprintf("http://%s/api/file/content/downloading?id=%d", baseURL, newfile.ID)
 		content := map[string]interface{}{
-			"from":   "",
-			"type":   "document", // Assuming $type is "document"
-			"ext":    filetype,
-			"url":    "",
-			"remote": downloadURL,
+			"from":      "",
+			"type":      newfile.Type, // Assuming $type is "document"
+			"ext":       newfile.Ext,
+			"url":       "",
+			"cloud_url": downloadURL,
 		}
 		jsonData, err := json.Marshal(content)
 		if err != nil {
@@ -465,7 +466,7 @@ func Io_Upload(user *User, pid int, webkitRelativePath string, overwrite bool, f
 
 	// 生成下载URL
 	baseURL := os.Getenv("SERVER_URL")
-	downloadURL := fmt.Sprintf("http://%s/api/file/content/downloading?fileId=%d", baseURL, existingFile.ID)
+	downloadURL := fmt.Sprintf("http://%s/api/file/content/downloading?id=%d", baseURL, existingFile.ID)
 
 	// 获取现有的content内容
 	fileContent, err := query.Q.FileContent.Where(query.FileContent.Fid.Eq(existingFile.ID)).First()
@@ -476,17 +477,17 @@ func Io_Upload(user *User, pid int, webkitRelativePath string, overwrite bool, f
 	var newContent string
 	if fileContent.Content == "" {
 		// 如果原内容为空，直接创建新的JSON
-		newContent = fmt.Sprintf(`{"remote":"%s"}`, downloadURL)
+		newContent = fmt.Sprintf(`{"cloud_url":"%s"}`, downloadURL)
 	} else {
-		// 如果原内容不为空，保持原有内容并在最后添加remote字段
+		// 如果原内容不为空，保持原有内容并在最后添加cloud_url字段
 		// 移除最后的 }
 		trimmedContent := strings.TrimRight(strings.TrimSpace(fileContent.Content), "}")
 		if trimmedContent == "{" {
 			// 如果只有开括号，直接添加新字段
-			newContent = fmt.Sprintf(`{"remote":"%s"}`, downloadURL)
+			newContent = fmt.Sprintf(`{"cloud_url":"%s"}`, downloadURL)
 		} else {
 			// 在原有内容后添加新字段
-			newContent = fmt.Sprintf(`%s,"remote":"%s"}`, trimmedContent, downloadURL)
+			newContent = fmt.Sprintf(`%s,"cloud_url":"%s"}`, trimmedContent, downloadURL)
 		}
 	}
 
@@ -593,8 +594,8 @@ func OfficeUpload(user *User, id int, status int, key string, urlStr string) err
 		}
 		downloadURL := fmt.Sprintf("http://%s/api/file/content/downloading_office?key=%s", baseURL, key)
 		content := map[string]interface{}{
-			"from":       loadURL,
-			"office_url": downloadURL,
+			"from":      loadURL,
+			"cloud_url": downloadURL,
 		}
 		jsonData, err := json.Marshal(content)
 		if err != nil {
@@ -614,10 +615,7 @@ func OfficeUpload(user *User, id int, status int, key string, urlStr string) err
 
 func DeleteLocalFileWithUser(user *User, fileID int32) error {
 	// 查询数据库获取文件信息
-	file, err := query.Q.File.Where(query.File.ID.Eq(int64(fileID))).First()
-	if err != nil {
-		return fmt.Errorf("file not found: %w", err)
-	}
+	file, _ := query.Q.File.Where(query.File.ID.Eq(int64(fileID))).First()
 
 	// 获取本地下载目录
 	localDir := os.Getenv("LOCAL_DOWNLOAD_DIR")
@@ -626,13 +624,14 @@ func DeleteLocalFileWithUser(user *User, fileID int32) error {
 	}
 
 	// 构造本地文件路径
-	localFilePath := fmt.Sprintf("%s/%s.%s", localDir, file.Name, file.Ext)
+	localFileName := fmt.Sprintf("%d_%s.%s", fileID, file.Name, file.Ext)
+	localFilePath := filepath.Join(localDir, localFileName)
 
 	// 删除本地文件
-	err = os.Remove(localFilePath)
+	err := os.Remove(localFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("file not found on local storage: %w", err)
+			return nil // 如果文件不存在，直接返回成功
 		}
 		return fmt.Errorf("failed to delete local file: %w", err)
 	}
@@ -642,8 +641,11 @@ func DeleteLocalFileWithUser(user *User, fileID int32) error {
 
 // 封装数据库更新content字段的url部分
 func UpdateFileContentURLInDB(fileID int64, localFilePath string) error {
-	// 查询数据库获取原始content
-	fileContent, err := query.Q.FileContent.Where(query.FileContent.Fid.Eq(fileID)).First()
+	// 查询数据库获取最新的content记录
+	fileContent, err := query.Q.FileContent.
+		Where(query.FileContent.Fid.Eq(fileID)).
+		Order(query.FileContent.UpdatedAt.Desc()).
+		First()
 	if err != nil {
 		return fmt.Errorf("file content not found: %v", err)
 	}
@@ -655,7 +657,7 @@ func UpdateFileContentURLInDB(fileID int64, localFilePath string) error {
 		return fmt.Errorf("failed to unmarshal content: %v", err)
 	}
 
-	// 更新content中的url字段为本地路径
+	// 仅更新url字段，保留其他字段不变
 	content["url"] = localFilePath
 
 	// 将更新后的content转回JSON格式
@@ -664,8 +666,10 @@ func UpdateFileContentURLInDB(fileID int64, localFilePath string) error {
 		return fmt.Errorf("failed to marshal updated content: %v", err)
 	}
 
-	// 更新数据库中的content字段
-	if _, err := query.Q.FileContent.Where(query.FileContent.Fid.Eq(fileID)).
+	// 更新数据库中最新记录的content字段
+	if _, err := query.Q.FileContent.
+		Where(query.FileContent.Fid.Eq(fileID)).
+		Where(query.FileContent.UpdatedAt.Eq(fileContent.UpdatedAt)).
 		Update(query.FileContent.Content, string(updatedContent)); err != nil {
 		return fmt.Errorf("failed to update content in database: %v", err)
 	}
@@ -706,4 +710,33 @@ func GetFileContentURL(fileID int64) (string, error) {
 	// 正式环境
 	// return GetWorkDir() + "/" + url, nil
 
+}
+
+func DownloadFileFromURL(url string, localPath string) error {
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	resp, err := client.Get(url)
+	if err != nil {
+		return fmt.Errorf("HTTP请求失败: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("HTTP响应错误, 状态码: %d", resp.StatusCode)
+	}
+
+	out, err := os.Create(localPath)
+	if err != nil {
+		return fmt.Errorf("创建本地文件失败: %v", err)
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return fmt.Errorf("写入文件失败: %v", err)
+	}
+
+	return nil
 }
