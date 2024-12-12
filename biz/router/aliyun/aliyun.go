@@ -25,6 +25,7 @@ func Register(r *server.Hertz) {
 				_content := _file.Group("/content", _contentMw()...)
 				_content.GET("/download", append(_downloadMw(), aliyun.Download)...)
 				_content.GET("/downloading", append(_downloadingMw(), aliyun.Downloading)...)
+				_content.GET("/downloading_office", append(_downloadingofficeMw(), aliyun.DownloadingOffice)...)
 				_content.POST("/io_upload", append(_iouploadMw(), aliyun.IoUpload)...)
 				_content.GET("/office", append(_officeuploadMw(), aliyun.OfficeUpload)...)
 				_content.POST("/office", append(_officeupload0Mw(), aliyun.OfficeUpload)...)

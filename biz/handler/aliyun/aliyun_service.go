@@ -260,3 +260,31 @@ func IoUpload(ctx context.Context, c *app.RequestContext) {
 
 	c.JSON(consts.StatusOK, resp)
 }
+
+// DownloadingOffice .
+// @router /api/file/content/downloading_office [GET]
+func DownloadingOffice(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req aliyun.DownloadOfficeReq
+	err = c.BindAndValidate(&req)
+	if err != nil {
+		c.String(consts.StatusBadRequest, err.Error())
+		return
+	}
+
+	ossFileName := req.Key
+	log.Printf("开始下载文件: %s", ossFileName)
+
+	fileData, err := service.DownloadFile(ossFileName)
+	if err != nil {
+		log.Printf("下载文件失败: %s, 错误: %v", ossFileName, err)
+		c.String(consts.StatusInternalServerError, "下载文件失败: "+err.Error())
+		return
+	}
+
+	log.Printf("文件下载成功: %s", ossFileName)
+
+	c.Header("Content-Disposition", "attachment; filename="+ossFileName)
+	c.Header("Content-Type", "application/octet-stream")
+	c.Data(consts.StatusOK, "application/octet-stream", fileData)
+}

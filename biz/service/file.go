@@ -402,7 +402,7 @@ func Upload(user *User, pid int, webkitRelativePath string, overwrite bool, file
 		HandleDuplicateName(newfile)
 		saveBeforePP(newfile)
 		baseURL := os.Getenv("SERVER_URL")
-		downloadURL := fmt.Sprintf("%s/api/file/content/downloading?fileId=%d", baseURL, newfile.ID)
+		downloadURL := fmt.Sprintf("http://%s/api/file/content/downloading?fileId=%d", baseURL, newfile.ID)
 		content := map[string]interface{}{
 			"from":   "",
 			"type":   "document", // Assuming $type is "document"
@@ -465,7 +465,7 @@ func Io_Upload(user *User, pid int, webkitRelativePath string, overwrite bool, f
 
 	// 生成下载URL
 	baseURL := os.Getenv("SERVER_URL")
-	downloadURL := fmt.Sprintf("%s/api/file/content/downloading?fileId=%d", baseURL, existingFile.ID)
+	downloadURL := fmt.Sprintf("http://%s/api/file/content/downloading?fileId=%d", baseURL, existingFile.ID)
 
 	// 获取现有的content内容
 	fileContent, err := query.Q.FileContent.Where(query.FileContent.Fid.Eq(existingFile.ID)).First()
@@ -526,6 +526,7 @@ func Io_Upload(user *User, pid int, webkitRelativePath string, overwrite bool, f
 }
 
 func OfficeUpload(user *User, id int, status int, key string, urlStr string) error {
+	var loadURL string
 	row, err := permissionFind(id, user, 1)
 	if err != nil {
 		return err
@@ -537,19 +538,39 @@ func OfficeUpload(user *User, id int, status int, key string, urlStr string) err
 			return err
 		}
 
+		originalParams := strings.Split(parsedURL.RawQuery, "&")
+		filenameIndex := -1
+
+		for i, param := range originalParams {
+			if strings.HasPrefix(param, "filename=") {
+				filenameIndex = i
+				break
+			}
+		}
+
 		q := parsedURL.Query()
 		q.Set("filename", key)
-		parsedURL.RawQuery = q.Encode()
+		if filenameIndex >= 0 {
+			newParams := make([]string, len(originalParams))
+			for i, param := range originalParams {
+				if i == filenameIndex {
+					newParams[i] = "filename=" + url.QueryEscape(key)
+				} else if !strings.HasPrefix(param, "filename=") {
+					newParams[i] = param
+				}
+			}
+			parsedURL.RawQuery = strings.Join(newParams, "&")
+		} else {
+			parsedURL.RawQuery = q.Encode()
+		}
 
-		var loadURL string
+		if appIPPR := os.Getenv("APP_IPPR"); appIPPR != "" {
+			loadURL = fmt.Sprintf("http://%s.3%s?%s", appIPPR, parsedURL.Path, parsedURL.RawQuery)
+		} else {
+			loadURL = parsedURL.String()
+		}
 
-		// 开发环境
-		loadURL = parsedURL.String()
-
-		// 正式环境
-		// loadURL = fmt.Sprintf("http://%s.3%s?%s", os.Getenv("APP_IPPR"), parsedURL.Path, parsedURL.RawQuery)
-
-		fmt.Printf("Downloading from URL: %s\n", loadURL)
+		// fmt.Printf("Downloading from URL: %s\n", loadURL)
 		response, err := http.Get(loadURL)
 		if err != nil {
 			fmt.Printf("Download failed: %v\n", err)
@@ -568,12 +589,12 @@ func OfficeUpload(user *User, id int, status int, key string, urlStr string) err
 
 		baseURL := os.Getenv("SERVER_URL")
 		if baseURL == "" {
-			baseURL = "http://localhost:8888"
+			baseURL = "localhost:8888"
 		}
-		downloadURL := fmt.Sprintf("%s/api/file/content/downloading?fileId=%d", baseURL, row.ID)
+		downloadURL := fmt.Sprintf("http://%s/api/file/content/downloading_office?key=%s", baseURL, key)
 		content := map[string]interface{}{
-			"from": loadURL,
-			"url":  downloadURL,
+			"from":       loadURL,
+			"office_url": downloadURL,
 		}
 		jsonData, err := json.Marshal(content)
 		if err != nil {

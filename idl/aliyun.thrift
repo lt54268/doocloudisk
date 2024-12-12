@@ -88,6 +88,16 @@ struct DownloadResp {
     3: list<common.File> data;
 }
 
+struct DownloadOfficeReq {
+    1: string Key (api.query="key");
+}
+
+struct DownloadOfficeResp {
+    1: i8 ret;
+    2: string msg;
+    3: list<common.File> data;
+}
+
 struct RemoveReq {
     1: i32 FileId (api.query="id");
 }
@@ -105,5 +115,6 @@ service AliyunService {
     SaveResp save(1: SaveReq request) (api.post="/api/file/content/save");
     DownloadResp download(1: DownloadReq request) (api.get="/api/file/content/download");
     DownloadResp downloading(1: DownloadReq request) (api.get="/api/file/content/downloading");
+    DownloadResp downloading_office(1: DownloadOfficeReq request) (api.get="/api/file/content/downloading_office");
     RemoveResp remove(1: RemoveReq request) (api.delete="/api/file/content/remove");
 }
