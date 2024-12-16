@@ -31,6 +31,7 @@ func Register(r *server.Hertz) {
 				_content.POST("/office", append(_officeupload0Mw(), aliyun.OfficeUpload)...)
 				_content.DELETE("/remove", append(_removeMw(), aliyun.Remove)...)
 				_content.POST("/save", append(_saveMw(), aliyun.Save)...)
+				_content.GET("/status", append(_statusMw(), aliyun.Status)...)
 				_content.POST("/upload", append(_uploadMw(), aliyun.Upload)...)
 			}
 		}

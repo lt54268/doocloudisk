@@ -70,3 +70,8 @@ func _downloadingofficeMw() []app.HandlerFunc {
 	// your code...
 	return nil
 }
+
+func _statusMw() []app.HandlerFunc {
+	// your code...
+	return nil
+}

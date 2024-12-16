@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/cloudisk/biz/dal/query"
 	aliyun "github.com/cloudisk/biz/model/aliyun"
@@ -321,4 +322,78 @@ func DownloadingOffice(ctx context.Context, c *app.RequestContext) {
 	c.Header("Content-Disposition", "attachment; filename="+ossFileName)
 	c.Header("Content-Type", "application/octet-stream")
 	c.Data(consts.StatusOK, "application/octet-stream", fileData)
+}
+
+// Status .
+// @router /api/file/content/status [GET]
+func Status(ctx context.Context, c *app.RequestContext) {
+	var err error
+	var req aliyun.StatusReq
+	err = c.BindAndValidate(&req)
+	if err != nil {
+		log.Printf("Bind and validate error: %v", err)
+		resp := new(aliyun.StatusResp)
+		resp.Ret = 1
+		resp.Msg = "success"
+		c.JSON(consts.StatusOK, resp)
+		return
+	}
+
+	resp := new(aliyun.StatusResp)
+	resp.Ret = 1
+	resp.Msg = "success"
+
+	// 获取文件内容
+	log.Printf("Querying file content for FileId: %d", req.FileId)
+	fileContent, err := query.Q.FileContent.
+		Where(query.FileContent.Fid.Eq(int64(req.FileId))).
+		Order(query.FileContent.UpdatedAt.Desc()).
+		First()
+	if err != nil {
+		log.Printf("Query error: %v", err)
+		// 查询失败时返回正常响应
+		c.JSON(consts.StatusOK, resp)
+		return
+	}
+
+	log.Printf("Raw content: %s", fileContent.Content)
+
+	// 解析content字段的JSON
+	var contentMap map[string]interface{}
+	if err := json.Unmarshal([]byte(fileContent.Content), &contentMap); err != nil {
+		log.Printf("JSON unmarshal error: %v", err)
+		// JSON解析失败时返回正常响应
+		c.JSON(consts.StatusOK, resp)
+		return
+	}
+
+	log.Printf("Parsed content map: %+v", contentMap)
+
+	// 检查cloud_url字段
+	cloudURL, hasCloudURL := contentMap["cloud_url"].(string)
+	if !hasCloudURL {
+		log.Printf("cloud_url not found or not string, raw value: %v", contentMap["cloud_url"])
+		c.JSON(consts.StatusOK, resp)
+		return
+	}
+	log.Printf("cloud_url: %s", cloudURL)
+
+	// 如果有cloud_url字段，默认显示云图标
+	resp.Msg = "cloud"
+
+	// 如果存在cloud_url，再检查url字段
+	if url, hasURL := contentMap["url"].(string); hasURL {
+		log.Printf("url: %s", url)
+		// 处理转义的url
+		url = strings.ReplaceAll(url, "\\/", "/")
+		log.Printf("Processed url: %s", url)
+		
+		// 如果url不为空，则显示云确认图标
+		if url != "" {
+			resp.Msg = "cloud_confirmed"
+		}
+	}
+
+	log.Printf("Final response: %+v", resp)
+	c.JSON(consts.StatusOK, resp)
 }
