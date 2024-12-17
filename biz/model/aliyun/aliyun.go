@@ -3085,8 +3085,195 @@ func (p *RemoveResp) String() string {
 
 }
 
+type FileStatus struct {
+	ID     int32  `thrift:"id,1" form:"id" json:"id" query:"id"`
+	Status string `thrift:"status,2" form:"status" json:"status" query:"status"`
+}
+
+func NewFileStatus() *FileStatus {
+	return &FileStatus{}
+}
+
+func (p *FileStatus) InitDefault() {
+}
+
+func (p *FileStatus) GetID() (v int32) {
+	return p.ID
+}
+
+func (p *FileStatus) GetStatus() (v string) {
+	return p.Status
+}
+
+var fieldIDToName_FileStatus = map[int16]string{
+	1: "id",
+	2: "status",
+}
+
+func (p *FileStatus) Read(iprot thrift.TProtocol) (err error) {
+
+	var fieldTypeId thrift.TType
+	var fieldId int16
+
+	if _, err = iprot.ReadStructBegin(); err != nil {
+		goto ReadStructBeginError
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err = iprot.ReadFieldBegin()
+		if err != nil {
+			goto ReadFieldBeginError
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+
+		switch fieldId {
+		case 1:
+			if fieldTypeId == thrift.I32 {
+				if err = p.ReadField1(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		case 2:
+			if fieldTypeId == thrift.STRING {
+				if err = p.ReadField2(iprot); err != nil {
+					goto ReadFieldError
+				}
+			} else if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		default:
+			if err = iprot.Skip(fieldTypeId); err != nil {
+				goto SkipFieldError
+			}
+		}
+		if err = iprot.ReadFieldEnd(); err != nil {
+			goto ReadFieldEndError
+		}
+	}
+	if err = iprot.ReadStructEnd(); err != nil {
+		goto ReadStructEndError
+	}
+
+	return nil
+ReadStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct begin error: ", p), err)
+ReadFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d begin error: ", p, fieldId), err)
+ReadFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T read field %d '%s' error: ", p, fieldId, fieldIDToName_FileStatus[fieldId]), err)
+SkipFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T field %d skip type %d error: ", p, fieldId, fieldTypeId), err)
+
+ReadFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read field end error", p), err)
+ReadStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+}
+
+func (p *FileStatus) ReadField1(iprot thrift.TProtocol) error {
+
+	var _field int32
+	if v, err := iprot.ReadI32(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.ID = _field
+	return nil
+}
+func (p *FileStatus) ReadField2(iprot thrift.TProtocol) error {
+
+	var _field string
+	if v, err := iprot.ReadString(); err != nil {
+		return err
+	} else {
+		_field = v
+	}
+	p.Status = _field
+	return nil
+}
+
+func (p *FileStatus) Write(oprot thrift.TProtocol) (err error) {
+
+	var fieldId int16
+	if err = oprot.WriteStructBegin("FileStatus"); err != nil {
+		goto WriteStructBeginError
+	}
+	if p != nil {
+		if err = p.writeField1(oprot); err != nil {
+			fieldId = 1
+			goto WriteFieldError
+		}
+		if err = p.writeField2(oprot); err != nil {
+			fieldId = 2
+			goto WriteFieldError
+		}
+	}
+	if err = oprot.WriteFieldStop(); err != nil {
+		goto WriteFieldStopError
+	}
+	if err = oprot.WriteStructEnd(); err != nil {
+		goto WriteStructEndError
+	}
+	return nil
+WriteStructBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+WriteFieldError:
+	return thrift.PrependError(fmt.Sprintf("%T write field %d error: ", p, fieldId), err)
+WriteFieldStopError:
+	return thrift.PrependError(fmt.Sprintf("%T write field stop error: ", p), err)
+WriteStructEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write struct end error: ", p), err)
+}
+
+func (p *FileStatus) writeField1(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("id", thrift.I32, 1); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteI32(p.ID); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 1 end error: ", p), err)
+}
+
+func (p *FileStatus) writeField2(oprot thrift.TProtocol) (err error) {
+	if err = oprot.WriteFieldBegin("status", thrift.STRING, 2); err != nil {
+		goto WriteFieldBeginError
+	}
+	if err := oprot.WriteString(p.Status); err != nil {
+		return err
+	}
+	if err = oprot.WriteFieldEnd(); err != nil {
+		goto WriteFieldEndError
+	}
+	return nil
+WriteFieldBeginError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 begin error: ", p), err)
+WriteFieldEndError:
+	return thrift.PrependError(fmt.Sprintf("%T write field 2 end error: ", p), err)
+}
+
+func (p *FileStatus) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("FileStatus(%+v)", *p)
+
+}
+
 type StatusReq struct {
-	FileId int32 `thrift:"FileId,1" json:"FileId" query:"id"`
+	FileIds []int32 `thrift:"FileIds,1" json:"FileIds" query:"ids"`
 }
 
 func NewStatusReq() *StatusReq {
@@ -3096,12 +3283,12 @@ func NewStatusReq() *StatusReq {
 func (p *StatusReq) InitDefault() {
 }
 
-func (p *StatusReq) GetFileId() (v int32) {
-	return p.FileId
+func (p *StatusReq) GetFileIds() (v []int32) {
+	return p.FileIds
 }
 
 var fieldIDToName_StatusReq = map[int16]string{
-	1: "FileId",
+	1: "FileIds",
 }
 
 func (p *StatusReq) Read(iprot thrift.TProtocol) (err error) {
@@ -3124,7 +3311,7 @@ func (p *StatusReq) Read(iprot thrift.TProtocol) (err error) {
 
 		switch fieldId {
 		case 1:
-			if fieldTypeId == thrift.I32 {
+			if fieldTypeId == thrift.LIST {
 				if err = p.ReadField1(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -3161,14 +3348,26 @@ ReadStructEndError:
 }
 
 func (p *StatusReq) ReadField1(iprot thrift.TProtocol) error {
-
-	var _field int32
-	if v, err := iprot.ReadI32(); err != nil {
+	_, size, err := iprot.ReadListBegin()
+	if err != nil {
 		return err
-	} else {
-		_field = v
 	}
-	p.FileId = _field
+	_field := make([]int32, 0, size)
+	for i := 0; i < size; i++ {
+
+		var _elem int32
+		if v, err := iprot.ReadI32(); err != nil {
+			return err
+		} else {
+			_elem = v
+		}
+
+		_field = append(_field, _elem)
+	}
+	if err := iprot.ReadListEnd(); err != nil {
+		return err
+	}
+	p.FileIds = _field
 	return nil
 }
 
@@ -3202,10 +3401,18 @@ WriteStructEndError:
 }
 
 func (p *StatusReq) writeField1(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("FileId", thrift.I32, 1); err != nil {
+	if err = oprot.WriteFieldBegin("FileIds", thrift.LIST, 1); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteI32(p.FileId); err != nil {
+	if err := oprot.WriteListBegin(thrift.I32, len(p.FileIds)); err != nil {
+		return err
+	}
+	for _, v := range p.FileIds {
+		if err := oprot.WriteI32(v); err != nil {
+			return err
+		}
+	}
+	if err := oprot.WriteListEnd(); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {
@@ -3227,9 +3434,9 @@ func (p *StatusReq) String() string {
 }
 
 type StatusResp struct {
-	Ret  int8           `thrift:"ret,1" form:"ret" json:"ret" query:"ret"`
-	Msg  string         `thrift:"msg,2" form:"msg" json:"msg" query:"msg"`
-	Data []*common.File `thrift:"data,3" form:"data" json:"data" query:"data"`
+	Ret  int8          `thrift:"ret,1" form:"ret" json:"ret" query:"ret"`
+	Msg  string        `thrift:"msg,2" form:"msg" json:"msg" query:"msg"`
+	Data []*FileStatus `thrift:"data,3" form:"data" json:"data" query:"data"`
 }
 
 func NewStatusResp() *StatusResp {
@@ -3247,7 +3454,7 @@ func (p *StatusResp) GetMsg() (v string) {
 	return p.Msg
 }
 
-func (p *StatusResp) GetData() (v []*common.File) {
+func (p *StatusResp) GetData() (v []*FileStatus) {
 	return p.Data
 }
 
@@ -3356,8 +3563,8 @@ func (p *StatusResp) ReadField3(iprot thrift.TProtocol) error {
 	if err != nil {
 		return err
 	}
-	_field := make([]*common.File, 0, size)
-	values := make([]common.File, size)
+	_field := make([]*FileStatus, 0, size)
+	values := make([]FileStatus, size)
 	for i := 0; i < size; i++ {
 		_elem := &values[i]
 		_elem.InitDefault()

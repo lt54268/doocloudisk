@@ -335,6 +335,7 @@ func Status(ctx context.Context, c *app.RequestContext) {
 		resp := new(aliyun.StatusResp)
 		resp.Ret = 1
 		resp.Msg = "success"
+		resp.Data = make([]*aliyun.FileStatus, 0)
 		c.JSON(consts.StatusOK, resp)
 		return
 	}
@@ -342,58 +343,50 @@ func Status(ctx context.Context, c *app.RequestContext) {
 	resp := new(aliyun.StatusResp)
 	resp.Ret = 1
 	resp.Msg = "success"
+	resp.Data = make([]*aliyun.FileStatus, 0)
 
 	// 获取文件内容
-	log.Printf("Querying file content for FileId: %d", req.FileId)
-	fileContent, err := query.Q.FileContent.
-		Where(query.FileContent.Fid.Eq(int64(req.FileId))).
+	log.Printf("开始查询文件状态: %v", req.FileIds)
+	fileContents, err := query.Q.FileContent.
+		Where(query.FileContent.Fid.In(service.SliceInt32ToInt64(req.FileIds)...)).
 		Order(query.FileContent.UpdatedAt.Desc()).
-		First()
+		Find()
 	if err != nil {
 		log.Printf("Query error: %v", err)
-		// 查询失败时返回正常响应
 		c.JSON(consts.StatusOK, resp)
 		return
 	}
 
-	log.Printf("Raw content: %s", fileContent.Content)
-
-	// 解析content字段的JSON
-	var contentMap map[string]interface{}
-	if err := json.Unmarshal([]byte(fileContent.Content), &contentMap); err != nil {
-		log.Printf("JSON unmarshal error: %v", err)
-		// JSON解析失败时返回正常响应
-		c.JSON(consts.StatusOK, resp)
-		return
-	}
-
-	log.Printf("Parsed content map: %+v", contentMap)
-
-	// 检查cloud_url字段
-	cloudURL, hasCloudURL := contentMap["cloud_url"].(string)
-	if !hasCloudURL {
-		log.Printf("cloud_url not found or not string, raw value: %v", contentMap["cloud_url"])
-		c.JSON(consts.StatusOK, resp)
-		return
-	}
-	log.Printf("cloud_url: %s", cloudURL)
-
-	// 如果有cloud_url字段，默认显示云图标
-	resp.Msg = "cloud"
-
-	// 如果存在cloud_url，再检查url字段
-	if url, hasURL := contentMap["url"].(string); hasURL {
-		log.Printf("url: %s", url)
-		// 处理转义的url
-		url = strings.ReplaceAll(url, "\\/", "/")
-		log.Printf("Processed url: %s", url)
-		
-		// 如果url不为空，则显示云确认图标
-		if url != "" {
-			resp.Msg = "cloud_confirmed"
+	// 处理每个文件的内容
+	for _, fileContent := range fileContents {
+		fileStatus := &aliyun.FileStatus{
+			ID:     int32(fileContent.Fid),
+			Status: "none", // 默认状态
 		}
+
+		var contentMap map[string]interface{}
+		if err := json.Unmarshal([]byte(fileContent.Content), &contentMap); err != nil {
+			log.Printf("JSON unmarshal error for FileId %d: %v", fileStatus.ID, err)
+			resp.Data = append(resp.Data, fileStatus)
+			continue
+		}
+
+		// 检查cloud_url字段
+		if cloudURL, hasCloudURL := contentMap["cloud_url"].(string); hasCloudURL && cloudURL != "" {
+			fileStatus.Status = "cloud"
+
+			// 检查url字段
+			if url, hasURL := contentMap["url"].(string); hasURL {
+				url = strings.ReplaceAll(url, "\\/", "/")
+				if url != "" {
+					fileStatus.Status = "cloud_confirmed"
+				}
+			}
+		}
+
+		resp.Data = append(resp.Data, fileStatus)
 	}
 
-	log.Printf("Final response: %+v", resp)
+	log.Printf("查询文件状态完成: %+v", resp)
 	c.JSON(consts.StatusOK, resp)
 }

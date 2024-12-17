@@ -10,11 +10,11 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
-	"path/filepath"
 
 	"github.com/cloudisk/biz/dal/query"
 	"github.com/cloudisk/biz/model/common"
@@ -739,4 +739,13 @@ func DownloadFileFromURL(url string, localPath string) error {
 	}
 
 	return nil
+}
+
+// SliceInt32ToInt64 converts a slice of int32 to a slice of int64
+func SliceInt32ToInt64(in []int32) []int64 {
+	out := make([]int64, len(in))
+	for i, v := range in {
+		out[i] = int64(v)
+	}
+	return out
 }

@@ -108,14 +108,19 @@ struct RemoveResp {
     3: list<common.File> data;
 }
 
+struct FileStatus {
+    1: i32 id;
+    2: string status;
+}
+
 struct StatusReq {
-    1: i32 FileId (api.query="id");
+    1: list<i32> FileIds (api.query="ids");
 }
 
 struct StatusResp {
     1: i8 ret;
     2: string msg;
-    3: list<common.File> data;
+    3: list<FileStatus> data;
 }
 
 service AliyunService {
