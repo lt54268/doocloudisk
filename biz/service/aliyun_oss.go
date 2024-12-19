@@ -169,29 +169,36 @@ func DownloadFile(objectName string) ([]byte, error) {
 	}
 
 	cfg := oss.LoadDefaultConfig().
-		WithCredentialsProvider(credentials.NewEnvironmentVariableCredentialsProvider()).
-		WithRegion(region)
+		WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
+			config.OssAccessKeyId,
+			config.OssAccessKeySecret,
+			"")).
+		WithRegion(config.OssRegion).WithConnectTimeout(3 * time.Second).WithRetryMaxAttempts(3)
 
 	client := oss.NewClient(cfg)
 
+	// 创建下载请求
 	request := &oss.GetObjectRequest{
-		Bucket: oss.Ptr(bucketName),
+		Bucket: oss.Ptr(config.OssBucket),
 		Key:    oss.Ptr(objectName),
 	}
 
-	// 发起下载请求
-	result, err := client.GetObject(context.TODO(), request)
+	// 下载文件
+	output, err := client.GetObject(context.TODO(), request)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get object: %v", err)
+		log.Printf("下载文件失败: %v", err)
+		return nil, fmt.Errorf("failed to download object: %v", err)
 	}
-	defer result.Body.Close()
+	defer output.Body.Close()
 
 	// 读取文件内容
-	data, err := io.ReadAll(result.Body)
+	data, err := io.ReadAll(output.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read object data: %v", err)
+		log.Printf("读取文件内容失败: %v", err)
+		return nil, fmt.Errorf("failed to read object content: %v", err)
 	}
 
+	log.Printf("文件下载成功，大小: %d bytes", len(data))
 	return data, nil
 }
 

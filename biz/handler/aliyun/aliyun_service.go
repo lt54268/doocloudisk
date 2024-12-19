@@ -232,20 +232,56 @@ func Downloading(ctx context.Context, c *app.RequestContext) {
 	}
 
 	fileID := req.FileId
-	file, _ := query.Q.File.Where(query.File.ID.Eq(int64(fileID))).First()
-	ossFileName := file.Name + "." + file.Ext
-	log.Printf("开始下载文件: %s, ID: %d", ossFileName, fileID)
-
-	fileData, err := service.DownloadFile(ossFileName)
+	file, err := query.Q.File.Where(query.File.ID.Eq(int64(fileID))).First()
 	if err != nil {
-		log.Printf("下载文件失败: %s, 错误: %v", ossFileName, err)
+		c.String(consts.StatusBadRequest, "文件不存在")
+		return
+	}
+
+	// 递归获取完整的文件夹路径
+	paths := []string{}
+	currentFile := file
+
+	// 递归向上查找父文件夹
+	for currentFile.Pid > 0 {
+		parentFile, err := query.Q.File.Where(query.File.ID.Eq(currentFile.Pid)).First()
+		if err != nil {
+			log.Printf("获取父文件夹信息失败, ID: %d, 错误: %v", currentFile.Pid, err)
+			break
+		}
+		
+		if parentFile.Type == "folder" {
+			log.Printf("添加文件夹到路径: %s (ID: %d)", parentFile.Name, parentFile.ID)
+			// 将新的文件夹名添加到路径开头
+			paths = append([]string{parentFile.Name}, paths...)
+		}
+		
+		currentFile = parentFile
+	}
+
+	// 构建完整的文件路径
+	fileName := file.Name
+	if file.Ext != "" {
+		fileName = fileName + "." + file.Ext
+	}
+	fullPath := fileName
+	if len(paths) > 0 {
+		fullPath = strings.Join(paths, "/") + "/" + fileName
+		log.Printf("构建的完整文件路径: %s", fullPath)
+	}
+
+	log.Printf("开始下载文件: %s, ID: %d", fullPath, fileID)
+
+	fileData, err := service.DownloadFile(fullPath)
+	if err != nil {
+		log.Printf("下载文件失败: %s, 错误: %v", fullPath, err)
 		c.String(consts.StatusInternalServerError, "下载文件失败: "+err.Error())
 		return
 	}
 
-	log.Printf("文件下载成功: %s, ID: %d", ossFileName, fileID)
+	log.Printf("文件下载成功: %s, ID: %d", fullPath, fileID)
 
-	c.Header("Content-Disposition", "attachment; filename="+ossFileName)
+	c.Header("Content-Disposition", "attachment; filename="+fileName)
 	c.Header("Content-Type", "application/octet-stream")
 	c.Data(consts.StatusOK, "application/octet-stream", fileData)
 }

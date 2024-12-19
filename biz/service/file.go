@@ -525,7 +525,7 @@ func Io_Upload(user *User, fileID int, webkitRelativePath string, overwrite bool
 					continue
 				}
 				if folder.Type == "folder" {
-					log.Printf("添加文件夹到路径: %s", folder.Name)
+					log.Printf("从pids添加文件夹到路径: %s", folder.Name)
 					paths = append(paths, folder.Name)
 				}
 			}
