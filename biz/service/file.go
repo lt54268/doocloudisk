@@ -734,7 +734,10 @@ func OfficeUpload(user *User, id int, status int, key string, urlStr string) err
 
 func DeleteLocalFileWithUser(user *User, fileID int32) error {
 	// 查询数据库获取文件信息
-	file, _ := query.Q.File.Where(query.File.ID.Eq(int64(fileID))).First()
+	file, err := query.Q.File.Where(query.File.ID.Eq(int64(fileID))).First()
+	if err != nil {
+		return fmt.Errorf("failed to get file info: %w", err)
+	}
 
 	// 获取本地下载目录
 	localDir := os.Getenv("LOCAL_DOWNLOAD_DIR")
@@ -747,12 +750,39 @@ func DeleteLocalFileWithUser(user *User, fileID int32) error {
 	localFilePath := filepath.Join(localDir, localFileName)
 
 	// 删除本地文件
-	err := os.Remove(localFilePath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil // 如果文件不存在，直接返回成功
-		}
+	err = os.Remove(localFilePath)
+	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to delete local file: %w", err)
+	}
+
+	// 获取文件内容记录
+	fileContent, err := query.Q.FileContent.Where(query.FileContent.Fid.Eq(int64(fileID))).First()
+	if err != nil {
+		return fmt.Errorf("failed to get file content: %w", err)
+	}
+
+	// 解析当前的 content JSON
+	var contentMap map[string]interface{}
+	if err := json.Unmarshal([]byte(fileContent.Content), &contentMap); err != nil {
+		return fmt.Errorf("failed to parse content JSON: %w", err)
+	}
+
+	// 更新 url 字段为空字符串
+	contentMap["url"] = ""
+
+	// 将更新后的 map 转回 JSON
+	updatedContent, err := json.Marshal(contentMap)
+	if err != nil {
+		return fmt.Errorf("failed to marshal updated content: %w", err)
+	}
+
+	// 更新数据库中的 content 字段
+	_, err = query.Q.FileContent.Where(query.FileContent.Fid.Eq(int64(fileID))).
+		Updates(map[string]interface{}{
+			"content": string(updatedContent),
+		})
+	if err != nil {
+		return fmt.Errorf("failed to update file content: %w", err)
 	}
 
 	return nil
