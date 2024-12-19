@@ -8,11 +8,13 @@ import (
 	"log"
 	"mime/multipart"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/aliyun/alibabacloud-oss-go-sdk-v2/oss"
 	"github.com/aliyun/alibabacloud-oss-go-sdk-v2/oss/credentials"
 	sls "github.com/aliyun/aliyun-log-go-sdk"
+	"github.com/cloudisk/biz/dal/query"
 	"github.com/cloudisk/pkg/config"
 )
 
@@ -42,7 +44,42 @@ func NewLogQueryService() *LogQueryService {
 }
 
 // Upload 实现 Uploader 接口中的 Upload 方法
-func (u *OssUploader) Upload(file multipart.File, objectName string) (int64, error) {
+func (u *OssUploader) Upload(file multipart.File, objectName string, pid int64) (int64, error) {
+	// 获取文件的完整路径
+	fullPath := objectName
+	if strings.Contains(objectName, "/") {
+		// 如果已经包含路径分隔符，说明是从 webkitRelativePath 传入的，直接使用
+		fullPath = objectName
+	} else {
+		// 从 pid 开始构建文件夹路径
+		paths := []string{}
+		currentPid := pid
+
+		// 递归查找父文件夹
+		for currentPid > 0 {
+			parentFile, err := query.Q.File.Where(query.File.ID.Eq(currentPid)).First()
+			if err != nil {
+				log.Printf("找不到父文件夹，ID: %d, 错误: %v", currentPid, err)
+				break
+			}
+
+			if parentFile.Type == "folder" {
+				log.Printf("添加文件夹到路径: %s", parentFile.Name)
+				paths = append([]string{parentFile.Name}, paths...)
+			}
+
+			currentPid = parentFile.Pid
+		}
+
+		// 构建完整的文件路径
+		if len(paths) > 0 {
+			fullPath = strings.Join(paths, "/") + "/" + objectName
+			log.Printf("构建的完整文件路径: %s", fullPath)
+		} else {
+			log.Printf("没有找到父文件夹，使用原始文件名: %s", objectName)
+		}
+	}
+
 	cfg := oss.LoadDefaultConfig().
 		WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
 			config.OssAccessKeyId,
@@ -55,29 +92,35 @@ func (u *OssUploader) Upload(file multipart.File, objectName string) (int64, err
 	// 创建上传请求
 	request := &oss.PutObjectRequest{
 		Bucket: oss.Ptr(config.OssBucket),
-		Key:    oss.Ptr(objectName),
+		Key:    oss.Ptr(fullPath),
 		Body:   file,
 	}
+
+	log.Printf("开始上传文件到路径: %s", fullPath)
 
 	// 上传文件
 	_, err := client.PutObject(context.TODO(), request)
 	if err != nil {
+		log.Printf("文件上传失败: %v", err)
 		return 0, fmt.Errorf("failed to upload object: %v", err)
 	}
 
 	// 上传成功后，获取文件信息
 	objectInfo, err := client.HeadObject(context.TODO(), &oss.HeadObjectRequest{
 		Bucket: oss.Ptr(config.OssBucket),
-		Key:    oss.Ptr(objectName),
+		Key:    oss.Ptr(fullPath),
 	})
 	if err != nil {
+		log.Printf("获取文件信息失败: %v", err)
 		return 0, fmt.Errorf("failed to retrieve object info: %v", err)
 	}
 
+	log.Printf("文件上传成功，大小: %d bytes", objectInfo.ContentLength)
 	return objectInfo.ContentLength, nil
 }
 
 func (u *OssUploader) ReaderUpload(file io.ReadCloser, objectName string) (int64, error) {
+	// 直接使用文件名作为路径，因为这个方法主要用于临时文件上传
 	cfg := oss.LoadDefaultConfig().
 		WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
 			config.OssAccessKeyId,

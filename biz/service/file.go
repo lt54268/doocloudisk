@@ -19,13 +19,11 @@ import (
 	"github.com/cloudisk/biz/dal/query"
 	"github.com/cloudisk/biz/model/common"
 	"github.com/cloudisk/biz/model/gorm_gen"
-	"gorm.io/gen"
-	"gorm.io/gorm/clause"
 )
 
 // CloudUploader 定义统一的云存储上传接口
 type CloudUploader interface {
-	Upload(file multipart.File, objectName string) (ContentLength int64, err error)
+	Upload(file multipart.File, objectName string, pid int64) (ContentLength int64, err error)
 	ReaderUpload(file io.ReadCloser, objectName string) (ContentLength int64, err error)
 }
 
@@ -41,10 +39,10 @@ func getCloudUploader() CloudUploader {
 	switch cloudProvider {
 	case "aliyun":
 		return alioss
-	case "tencent":
-		return cosUploader
-	case "qiniu":
-		return qiniuUploader
+	// case "tencent":
+	// return cosUploader
+	// case "qiniu":
+	// return qiniuUploader
 	default:
 		return alioss // 默认使用阿里云OSS
 	}
@@ -136,6 +134,10 @@ func permissionFind(id int, user *User, limit int) (*gorm_gen.File, error) {
 }
 
 func saveBeforePP(f *gorm_gen.File) bool {
+	if f == nil {
+		return false
+	}
+
 	var pid int64 = f.Pid
 	var pshare int64 = 0
 	if f.Share > 0 {
@@ -145,48 +147,35 @@ func saveBeforePP(f *gorm_gen.File) bool {
 	var parentIds []int64
 	for pid > 0 {
 		parentIds = append(parentIds, pid)
-		file, err := query.Q.File.Where(query.File.Pid.Eq(pid)).First()
+		file, err := query.Q.File.Where(query.File.ID.Eq(pid)).First()
 		if err != nil {
-			pid = 0
+			// 如果找不到父文件夹，就停止查找，但不影响当前文件的保存
+			break
 		}
 		pid = file.Pid
 		if file.Share > 0 {
 			pshare = file.ID
 		}
 	}
-	opids := f.Pids
-	// Reverse the parent IDs to get the correct order
-	for i, j := 0, len(parentIds)-1; i < j; i, j = i+1, j-1 {
-		parentIds[i], parentIds[j] = parentIds[j], parentIds[i]
-	}
+
+	// 设置文件的 Pids
 	if len(parentIds) > 0 {
-		// 反转数组
+		// 反转数组以获得正确的路径顺序
 		for i, j := 0, len(parentIds)-1; i < j; i, j = i+1, j-1 {
 			parentIds[i], parentIds[j] = parentIds[j], parentIds[i]
 		}
-		// 将数组转换为字符串
 		f.Pids = "," + fmt.Sprintf("%v", parentIds) + ","
 	} else {
 		f.Pids = ""
 	}
 	f.Pshare = pshare
-	// Save the file
-	err := query.Q.File.Where(query.File.ID.Eq(f.ID)).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "id"}},
-		UpdateAll: true,
-	}).Create(f)
+
+	// 保存文件记录
+	err := query.Q.File.Create(f)
 	if err != nil {
 		return false
 	}
-	if f.Pids != opids {
-		buf := make([]*gorm_gen.File, 0, 100)
-		query.Q.File.Where(query.File.ID).FindInBatches(&buf, 100, func(tx gen.Dao, batch int) error {
-			for _, result := range buf {
-				saveBeforePP(result)
-			}
-			return nil
-		})
-	}
+
 	return true
 }
 
@@ -356,79 +345,136 @@ func Upload(user *User, pid int, webkitRelativePath string, overwrite bool, file
 		}
 	}
 
-	dirs := strings.Split(webkitRelativePath, "/")
-
-	for _, dirName := range dirs[0 : len(dirs)-1] {
-		if dirName == "" {
-			continue
-		}
-		query.Q.Transaction(func(tx *query.Query) error {
-			row, err := tx.File.Where(query.File.Pid.Eq(int64(pid)), query.File.Name.Eq(dirName)).Clauses(clause.Locking{Strength: "UPDATE"}).First()
-			if err != nil {
-				file := gorm_gen.File{Pid: int64(pid), Type: "folder", Name: dirName, Userid: user_id, CreatedID: int64(user.Userid)}
-				HandleDuplicateName(&file)
-				if saveBeforePP(&file) {
-					tx.File.Create(&file)
-				}
-				pid = int(file.Pid)
-			} else {
-				pid = int(row.Pid)
+	// 处理文件夹路径
+	var current_pid int64 = int64(pid)
+	if webkitRelativePath != "" {
+		dirs := strings.Split(webkitRelativePath, "/")
+		// 创建文件夹层级
+		for _, dirName := range dirs[0 : len(dirs)-1] {
+			if dirName == "" {
+				continue
 			}
-			return nil
-		})
+			var folder_id int64
+			err := query.Q.Transaction(func(tx *query.Query) error {
+				// 检查文件夹是否已存在
+				existingFolder, err := tx.File.Where(
+					query.File.Pid.Eq(current_pid),
+					query.File.Name.Eq(dirName),
+					query.File.Type.Eq("folder"),
+				).First()
+
+				if err == nil {
+					// 文件夹已存在，使用现有的
+					folder_id = existingFolder.ID
+				} else {
+					// 创建新文件夹
+					newFolder := &gorm_gen.File{
+						Pid:       current_pid,
+						Type:      "folder",
+						Name:      dirName,
+						Userid:    user_id,
+						CreatedID: int64(user.Userid),
+					}
+					HandleDuplicateName(newFolder)
+					if err := tx.File.Create(newFolder); err != nil {
+						return err
+					}
+					folder_id = newFolder.ID
+				}
+				return nil
+			})
+
+			if err != nil {
+				return nil, fmt.Errorf("创建文件夹失败: %v", err)
+			}
+			current_pid = folder_id
+		}
 	}
-	tmp_file := gorm_gen.File{Pid: int64(pid), Ext: getFileNameExt(file.Filename), Name: getFileNameWithoutExt(file.Filename), Userid: user_id, CreatedID: int64(user.Userid)}
-	HandleDuplicateName(&tmp_file)
+
+	// 处理文件上传
 	_file_open, _ := file.Open()
+	defer _file_open.Close()
+
 	uploader := getCloudUploader()
-	contentLength, err := uploader.Upload(_file_open, tmp_file.Name+"."+tmp_file.Ext)
+
+	// 构建上传路径
+	uploadPath := file.Filename
+	if webkitRelativePath != "" {
+		uploadPath = webkitRelativePath
+	}
+
+	contentLength, err := uploader.Upload(_file_open, uploadPath, int64(pid))
 	if err != nil {
 		return nil, err
 	}
-	_file_open.Close()
-	filetype := getFileType(file.Filename)
 
-	_file := gorm_gen.File{Pid: int64(pid), Type: filetype, Name: getFileNameWithoutExt(file.Filename), Ext: getFileNameExt(file.Filename), Userid: user_id, CreatedID: int64(user.Userid), Size: contentLength}
+	filetype := getFileType(file.Filename)
+	_file := gorm_gen.File{
+		Pid:       current_pid,
+		Type:      filetype,
+		Name:      getFileNameWithoutExt(file.Filename),
+		Ext:       getFileNameExt(file.Filename),
+		Userid:    user_id,
+		CreatedID: int64(user.Userid),
+		Size:      contentLength,
+	}
+
 	var newfile *gorm_gen.File
 	if overwrite {
-		newfile, _ = query.Q.File.Where(query.File.Ext.Eq(_file.Ext), query.File.Pid.Eq(_file.Pid), query.File.Name.Eq(_file.Name)).First()
+		newfile, _ = query.Q.File.Where(
+			query.File.Ext.Eq(_file.Ext),
+			query.File.Pid.Eq(_file.Pid),
+			query.File.Name.Eq(_file.Name),
+		).First()
 	}
 	if newfile == nil {
 		overwrite = false
 		newfile = &_file
 	}
 
-	fmt.Printf("res: %v\n", contentLength)
+	// 保存文件记录
 	err = query.Q.Transaction(func(tx *query.Query) error {
 		HandleDuplicateName(newfile)
-		saveBeforePP(newfile)
+		if err := tx.File.Create(newfile); err != nil {
+			return err
+		}
+
 		baseURL := os.Getenv("SERVER_URL")
 		downloadURL := fmt.Sprintf("http://%s/api/file/content/downloading?id=%d", baseURL, newfile.ID)
 		content := map[string]interface{}{
 			"from":      "",
-			"type":      newfile.Type, // Assuming $type is "document"
+			"type":      newfile.Type,
 			"ext":       newfile.Ext,
 			"url":       "",
 			"cloud_url": downloadURL,
 		}
 		jsonData, err := json.Marshal(content)
 		if err != nil {
-			fmt.Println("Error:", err)
-			return nil
+			return err
 		}
-		filecontent := gorm_gen.FileContent{Fid: newfile.ID, Content: string(jsonData), Text: "", Size: contentLength, Userid: user_id}
-		tx.FileContent.Create(&filecontent)
-		return nil
+
+		filecontent := gorm_gen.FileContent{
+			Fid:     newfile.ID,
+			Content: string(jsonData),
+			Text:    "",
+			Size:    contentLength,
+			Userid:  user_id,
+		}
+		return tx.FileContent.Create(&filecontent)
 	})
+
 	if err != nil {
-		return nil, errors.New("file upload failed,SQL create failed: " + err.Error())
+		return nil, fmt.Errorf("file upload failed, SQL create failed: %v", err)
 	}
+
+	// 获取最新的文件记录
 	newfile, _ = query.Q.File.Where(query.File.ID.Eq(newfile.ID)).First()
 
 	fullName := newfile.Name + "." + newfile.Ext
 	if webkitRelativePath != "" {
 		fullName = webkitRelativePath
 	}
+
 	resp := &common.File{
 		ID:        newfile.ID,
 		Pid:       newfile.Pid,
