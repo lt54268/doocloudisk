@@ -263,11 +263,25 @@ func IoUpload(ctx context.Context, c *app.RequestContext) {
 
 	user, _ := service.GetUserInfo(c.GetHeader("Token"))
 	fileID := req.GetFileId()
-	file, _ := query.Q.File.Where(query.File.ID.Eq(int64(fileID))).First()
-	filePath, _ := service.GetFileContentURL(int64(fileID))
-	fileReader, _ := os.Open(filePath)
+	file, err := query.Q.File.Where(query.File.ID.Eq(int64(fileID))).First()
+	if err != nil {
+		c.String(consts.StatusBadRequest, "文件不存在")
+		return
+	}
+
+	filePath, err := service.GetFileContentURL(int64(fileID))
+	if err != nil {
+		c.String(consts.StatusBadRequest, "获取文件路径失败")
+		return
+	}
+
+	fileReader, err := os.Open(filePath)
+	if err != nil {
+		c.String(consts.StatusBadRequest, "打开文件失败")
+		return
+	}
 	defer fileReader.Close()
-	pid, _ := strconv.Atoi(req.GetPid())
+
 	cover, _ := strconv.ParseBool(req.GetCover())
 	webkitRelativePath := req.GetWebkitRelativePath()
 
@@ -277,7 +291,8 @@ func IoUpload(ctx context.Context, c *app.RequestContext) {
 	// 添加上传前的日志
 	log.Printf("开始上传文件: %s, 文件ID: %d", fileName, fileID)
 
-	item, err := service.Io_Upload(user, pid, webkitRelativePath, cover, fileReader, fileName)
+	// 使用 fileID 而不是 pid
+	item, err := service.Io_Upload(user, int(fileID), webkitRelativePath, cover, fileReader, fileName)
 	if err != nil {
 		log.Printf("文件上传失败: %s, 错误: %v", fileName, err)
 		resp.Ret = 0

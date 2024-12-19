@@ -120,7 +120,8 @@ func (u *OssUploader) Upload(file multipart.File, objectName string, pid int64) 
 }
 
 func (u *OssUploader) ReaderUpload(file io.ReadCloser, objectName string) (int64, error) {
-	// 直接使用文件名作为路径，因为这个方法主要用于临时文件上传
+	log.Printf("开始上传文件到路径: %s", objectName)
+
 	cfg := oss.LoadDefaultConfig().
 		WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
 			config.OssAccessKeyId,
@@ -140,6 +141,7 @@ func (u *OssUploader) ReaderUpload(file io.ReadCloser, objectName string) (int64
 	// 上传文件
 	_, err := client.PutObject(context.TODO(), request)
 	if err != nil {
+		log.Printf("文件上传失败: %v", err)
 		return 0, fmt.Errorf("failed to upload object: %v", err)
 	}
 
@@ -149,9 +151,11 @@ func (u *OssUploader) ReaderUpload(file io.ReadCloser, objectName string) (int64
 		Key:    oss.Ptr(objectName),
 	})
 	if err != nil {
+		log.Printf("获取文件信息失败: %v", err)
 		return 0, fmt.Errorf("failed to retrieve object info: %v", err)
 	}
 
+	log.Printf("文件上传成功，大小: %d bytes", objectInfo.ContentLength)
 	return objectInfo.ContentLength, nil
 }
 

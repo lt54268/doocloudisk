@@ -497,53 +497,99 @@ func Upload(user *User, pid int, webkitRelativePath string, overwrite bool, file
 	return resp, nil
 }
 
-func Io_Upload(user *User, pid int, webkitRelativePath string, overwrite bool, file io.ReadCloser, filename string) (*common.File, error) {
+func Io_Upload(user *User, fileID int, webkitRelativePath string, overwrite bool, file io.ReadCloser, filename string) (*common.File, error) {
+	// 获取文件记录
+	existingFile, err := query.Q.File.Where(query.File.ID.Eq(int64(fileID))).First()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get file record: %v", err)
+	}
+
+	// 构建文件夹路径
+	paths := []string{}
+	if existingFile.Pids != "" {
+		// 移除开头和结尾的逗号
+		pids := strings.Trim(existingFile.Pids, ",")
+		if pids != "" {
+			// 分割成ID数组
+			pidArray := strings.Split(pids, ",")
+			for _, pidStr := range pidArray {
+				pid, err := strconv.ParseInt(pidStr, 10, 64)
+				if err != nil {
+					log.Printf("解析pid失败: %v", err)
+					continue
+				}
+				// 获取文件夹信息
+				folder, err := query.Q.File.Where(query.File.ID.Eq(pid)).First()
+				if err != nil {
+					log.Printf("获取文件夹信息失败, ID: %d, 错误: %v", pid, err)
+					continue
+				}
+				if folder.Type == "folder" {
+					log.Printf("添加文件夹到路径: %s", folder.Name)
+					paths = append(paths, folder.Name)
+				}
+			}
+		}
+	}
+
+	// 构建完整的文件路径
+	originalFileName := existingFile.Name
+	if existingFile.Ext != "" {
+		originalFileName = originalFileName + "." + existingFile.Ext
+	}
+	fullPath := originalFileName
+	if len(paths) > 0 {
+		fullPath = strings.Join(paths, "/") + "/" + originalFileName
+		log.Printf("构建的完整文件路径: %s", fullPath)
+	}
+
+	// 上传文件
 	uploader := getCloudUploader()
-	contentLength, err := uploader.ReaderUpload(file, filename)
+	contentLength, err := uploader.ReaderUpload(file, fullPath)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
-
-	// 获取已存在的文件记录
-	existingFile, _ := query.Q.File.Where(query.File.Name.Eq(getFileNameWithoutExt(filename)),
-		query.File.Ext.Eq(getFileNameExt(filename)),
-		query.File.Pid.Eq(int64(pid))).First()
 
 	// 生成下载URL
 	baseURL := os.Getenv("SERVER_URL")
 	downloadURL := fmt.Sprintf("http://%s/api/file/content/downloading?id=%d", baseURL, existingFile.ID)
 
 	// 获取现有的content内容
-	fileContent, err := query.Q.FileContent.Where(query.FileContent.Fid.Eq(existingFile.ID)).First()
+	_, err = query.Q.FileContent.Where(query.FileContent.Fid.Eq(existingFile.ID)).First()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get file content: %v", err)
 	}
 
-	var newContent string
-	if fileContent.Content == "" {
-		// 如果原内容为空，直接创建新的JSON
-		newContent = fmt.Sprintf(`{"cloud_url":"%s"}`, downloadURL)
-	} else {
-		// 如果原内容不为空，保持原有内容并在最后添加cloud_url字段
-		// 移除最后的 }
-		trimmedContent := strings.TrimRight(strings.TrimSpace(fileContent.Content), "}")
-		if trimmedContent == "{" {
-			// 如果只有开括号，直接添加新字段
-			newContent = fmt.Sprintf(`{"cloud_url":"%s"}`, downloadURL)
-		} else {
-			// 在原有内容后添加新字段
-			newContent = fmt.Sprintf(`%s,"cloud_url":"%s"}`, trimmedContent, downloadURL)
-		}
+	// 构建新的content内容
+	content := map[string]interface{}{
+		"from":      "",
+		"type":      existingFile.Type,
+		"ext":       existingFile.Ext,
+		"url":       "",
+		"cloud_url": downloadURL,
+	}
+	jsonData, err := json.Marshal(content)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal content: %v", err)
 	}
 
 	// 更新file_contents表中的content字段
 	_, err = query.Q.FileContent.Where(query.FileContent.Fid.Eq(existingFile.ID)).
 		Updates(map[string]interface{}{
-			"content": newContent,
+			"content": string(jsonData),
 		})
 	if err != nil {
 		return nil, fmt.Errorf("failed to update content field: %v", err)
+	}
+
+	// 更新文件大小
+	_, err = query.Q.File.Where(query.File.ID.Eq(existingFile.ID)).
+		Updates(map[string]interface{}{
+			"size": contentLength,
+		})
+	if err != nil {
+		return nil, fmt.Errorf("failed to update file size: %v", err)
 	}
 
 	fullName := existingFile.Name + "." + existingFile.Ext
@@ -574,11 +620,39 @@ func Io_Upload(user *User, pid int, webkitRelativePath string, overwrite bool, f
 
 func OfficeUpload(user *User, id int, status int, key string, urlStr string) error {
 	var loadURL string
+	// 获取文件记录
 	row, err := permissionFind(id, user, 1)
 	if err != nil {
 		return err
 	}
+
 	if status == 2 {
+		// 构建文件名和路径
+		originalFileName := row.Name
+		if row.Ext != "" {
+			originalFileName = originalFileName + "." + row.Ext
+		}
+
+		// 构建文件夹路径
+		paths := []string{}
+		currentPid := row.Pid
+		for currentPid > 0 {
+			parentFile, err := query.Q.File.Where(query.File.ID.Eq(currentPid)).First()
+			if err != nil {
+				break
+			}
+			if parentFile.Type == "folder" {
+				paths = append([]string{parentFile.Name}, paths...)
+			}
+			currentPid = parentFile.Pid
+		}
+
+		// 构建完整的文件路径
+		fullPath := originalFileName
+		if len(paths) > 0 {
+			fullPath = strings.Join(paths, "/") + "/" + originalFileName
+		}
+
 		parsedURL, err := url.Parse(urlStr)
 		if err != nil {
 			fmt.Printf("Failed to parse URL: %v\n", err)
@@ -617,7 +691,6 @@ func OfficeUpload(user *User, id int, status int, key string, urlStr string) err
 			loadURL = parsedURL.String()
 		}
 
-		// fmt.Printf("Downloading from URL: %s\n", loadURL)
 		response, err := http.Get(loadURL)
 		if err != nil {
 			fmt.Printf("Download failed: %v\n", err)
@@ -626,19 +699,19 @@ func OfficeUpload(user *User, id int, status int, key string, urlStr string) err
 		defer response.Body.Close()
 
 		uploader := getCloudUploader()
-		contentLength, err := uploader.ReaderUpload(response.Body, key)
+		contentLength, err := uploader.ReaderUpload(response.Body, fullPath)
 		if err != nil {
 			fmt.Printf("Cloud upload failed: %v\n", err)
 			return fmt.Errorf("failed to upload to cloud: %v", err)
 		}
 
-		log.Printf("office文件上传成功: %s", key)
+		log.Printf("office文件上传成功: %s", fullPath)
 
 		baseURL := os.Getenv("SERVER_URL")
 		if baseURL == "" {
 			baseURL = "localhost:8888"
 		}
-		downloadURL := fmt.Sprintf("http://%s/api/file/content/downloading_office?key=%s", baseURL, key)
+		downloadURL := fmt.Sprintf("http://%s/api/file/content/downloading_office?key=%s", baseURL, fullPath)
 		content := map[string]interface{}{
 			"from":      loadURL,
 			"cloud_url": downloadURL,
