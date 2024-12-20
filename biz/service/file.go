@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cloudisk/biz/dal/query"
@@ -28,9 +29,10 @@ type CloudUploader interface {
 }
 
 var (
-	alioss        *OssUploader   = NewOssUploader()
-	cosUploader   *CosUploader   = NewCosUploader()
-	qiniuUploader *QiniuCommoner = NewQiniuClient()
+	alioss            *OssUploader   = NewOssUploader()
+	cosUploader       *CosUploader   = NewCosUploader()
+	qiniuUploader     *QiniuCommoner = NewQiniuClient()
+	folderCreateMutex sync.Mutex
 )
 
 // getCloudUploader 根据环境变量返回对应的云存储上传器
@@ -354,19 +356,38 @@ func Upload(user *User, pid int, webkitRelativePath string, overwrite bool, file
 			if dirName == "" {
 				continue
 			}
-			var folder_id int64
-			err := query.Q.Transaction(func(tx *query.Query) error {
-				// 检查文件夹是否已存在
-				existingFolder, err := tx.File.Where(
-					query.File.Pid.Eq(current_pid),
-					query.File.Name.Eq(dirName),
-					query.File.Type.Eq("folder"),
-				).First()
 
-				if err == nil {
-					// 文件夹已存在，使用现有的
-					folder_id = existingFolder.ID
-				} else {
+			// 使用互斥锁确保同一时间只有一个goroutine可以创建文件夹
+			folderCreateMutex.Lock()
+			var folder_id int64
+
+			// 在锁内先查询文件夹是否存在
+			existingFolder, err := query.Q.File.Where(
+				query.File.Pid.Eq(current_pid),
+				query.File.Name.Eq(dirName),
+				query.File.Type.Eq("folder"),
+			).First()
+
+			if err == nil {
+				// 文件夹已存在，直接使用
+				folder_id = existingFolder.ID
+				folderCreateMutex.Unlock()
+			} else {
+				// 文件夹不存在，在事务中创建
+				err = query.Q.Transaction(func(tx *query.Query) error {
+					// 再次检查文件夹是否存在（双重检查）
+					existingFolder, err := tx.File.Where(
+						query.File.Pid.Eq(current_pid),
+						query.File.Name.Eq(dirName),
+						query.File.Type.Eq("folder"),
+					).First()
+
+					if err == nil {
+						// 另一个进程已经创建了文件夹
+						folder_id = existingFolder.ID
+						return nil
+					}
+
 					// 创建新文件夹
 					newFolder := &gorm_gen.File{
 						Pid:       current_pid,
@@ -380,12 +401,17 @@ func Upload(user *User, pid int, webkitRelativePath string, overwrite bool, file
 						return err
 					}
 					folder_id = newFolder.ID
-				}
-				return nil
-			})
+					return nil
+				})
+				folderCreateMutex.Unlock()
 
-			if err != nil {
-				return nil, fmt.Errorf("创建文件夹失败: %v", err)
+				if err != nil {
+					return nil, fmt.Errorf("创建文件夹失败: %v", err)
+				}
+			}
+
+			if folder_id == 0 {
+				return nil, fmt.Errorf("创建文件夹失败：无法获取有效的文件夹ID")
 			}
 			current_pid = folder_id
 		}

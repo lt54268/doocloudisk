@@ -37,7 +37,8 @@ func Upload(ctx context.Context, c *app.RequestContext) {
 	file := form.File["files"][0]
 	pid, _ := strconv.Atoi(req.GetPid())
 	cover, _ := strconv.ParseBool(req.GetCover())
-	webkitRelativePath := req.GetWebkitRelativePath()
+	webkitRelativePath := form.Value["webkitRelativePath"][0]
+	log.Printf("webkitRelativePath: %s", webkitRelativePath)
 
 	log.Printf("开始上传文件: %s", file.Filename)
 
@@ -249,13 +250,13 @@ func Downloading(ctx context.Context, c *app.RequestContext) {
 			log.Printf("获取父文件夹信息失败, ID: %d, 错误: %v", currentFile.Pid, err)
 			break
 		}
-		
+
 		if parentFile.Type == "folder" {
 			log.Printf("添加文件夹到路径: %s (ID: %d)", parentFile.Name, parentFile.ID)
 			// 将新的文件夹名添加到路径开头
 			paths = append([]string{parentFile.Name}, paths...)
 		}
-		
+
 		currentFile = parentFile
 	}
 
