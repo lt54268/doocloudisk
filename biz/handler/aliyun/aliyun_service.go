@@ -409,9 +409,17 @@ func Status(ctx context.Context, c *app.RequestContext) {
 	}
 
 	// 处理每个文件的内容
+	processedIDs := make(map[int32]bool)
 	for _, fileContent := range fileContents {
+		fileID := int32(fileContent.Fid)
+		// 如果已经处理过这个ID，跳过
+		if processedIDs[fileID] {
+			continue
+		}
+		processedIDs[fileID] = true
+
 		fileStatus := &aliyun.FileStatus{
-			ID:     int32(fileContent.Fid),
+			ID:     fileID,
 			Status: "none", // 默认状态
 		}
 
