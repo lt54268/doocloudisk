@@ -924,3 +924,174 @@ func SliceInt32ToInt64(in []int32) []int64 {
 	}
 	return out
 }
+
+// SaveContent 保存文件内容到云存储并更新数据库
+func SaveContent(user *User, id int64, content string) (*common.FileContent, error) {
+	log.Printf("SaveContent called with id=%d, content=%s", id, content)
+
+	// 查找文件并检查权限
+	file, err := query.Q.File.Where(query.File.ID.Eq(id)).First()
+	if err != nil {
+		log.Printf("Error finding file: %v", err)
+		log.Printf("SQL query: SELECT * FROM `pre_files` WHERE `pre_files`.`id` = %d AND `pre_files`.`deleted_at` IS NULL ORDER BY `pre_files`.`id` LIMIT 1", id)
+		return nil, errors.New("文件不存在或已被删除")
+	}
+
+	log.Printf("Found file: id=%d, name=%s, type=%s", file.ID, file.Name, file.Type)
+
+	// 检查权限
+	var userids []int64
+	if isContain(user.Identity, "temp") {
+		userids = []int64{int64(user.Userid)}
+	} else {
+		userids = []int64{0, int64(user.Userid)}
+	}
+	permission := getPermission(file, userids)
+	if permission < 1 {
+		return nil, errors.New("没有修改写入权限")
+	}
+
+	var contentString string
+	var fileExt string
+	var text string
+
+	// 解析内容
+	switch file.Type {
+	case "document":
+		var contentData map[string]interface{}
+		log.Printf("Parsing document content: %s", content)
+		if err := json.Unmarshal([]byte(content), &contentData); err != nil {
+			log.Printf("Error parsing document content: %v", err)
+			return nil, fmt.Errorf("文档内容格式无效: %v", err)
+		}
+		contentString = contentData["content"].(string)
+		if contentData["type"] == "md" {
+			fileExt = "md"
+		} else {
+			fileExt = "text"
+		}
+		text = contentString
+	case "drawio":
+		var contentData map[string]interface{}
+		log.Printf("Parsing drawio content: %s", content)
+		if err := json.Unmarshal([]byte(content), &contentData); err != nil {
+			log.Printf("Error parsing drawio content: %v", err)
+			return nil, fmt.Errorf("drawio内容格式无效: %v", err)
+		}
+		contentString = contentData["xml"].(string)
+		fileExt = "drawio"
+	case "mind":
+		contentString = content
+		fileExt = "mind"
+	case "txt", "code":
+		var contentData map[string]interface{}
+		log.Printf("Parsing txt/code content: %s", content)
+		if err := json.Unmarshal([]byte(content), &contentData); err != nil {
+			log.Printf("Error parsing txt/code content: %v", err)
+			return nil, fmt.Errorf("内容格式无效: %v", err)
+		}
+		contentString = contentData["content"].(string)
+		fileExt = file.Ext
+	default:
+		return nil, fmt.Errorf("不支持的文件类型: %s", file.Type)
+	}
+
+	// 构建文件路径
+	paths := []string{}
+	if file.Pids != "" {
+		pids := strings.Trim(file.Pids, ",")
+		if pids != "" {
+			pidArray := strings.Split(pids, ",")
+			for _, pidStr := range pidArray {
+				pid, err := strconv.ParseInt(pidStr, 10, 64)
+				if err != nil {
+					continue
+				}
+				folder, err := query.Q.File.Where(query.File.ID.Eq(pid)).First()
+				if err != nil {
+					continue
+				}
+				if folder.Type == "folder" {
+					paths = append(paths, folder.Name)
+				}
+			}
+		}
+	}
+
+	// 构建完整的文件路径
+	originalFileName := file.Name
+	if file.Ext != "" {
+		originalFileName = originalFileName + "." + file.Ext
+	}
+	fullPath := originalFileName
+	if len(paths) > 0 {
+		fullPath = strings.Join(paths, "/") + "/" + originalFileName
+	}
+
+	// 上传内容到云存储
+	contentReader := strings.NewReader(contentString)
+	size, err := getCloudUploader().ReaderUpload(io.NopCloser(contentReader), fullPath)
+	if err != nil {
+		return nil, fmt.Errorf("上传内容失败: %v", err)
+	}
+
+	// 生成下载URL
+	baseURL := os.Getenv("SERVER_URL")
+	downloadURL := fmt.Sprintf("http://%s/api/file/content/downloading?id=%d", baseURL, file.ID)
+
+	// 构建content内容
+	contentMap := map[string]interface{}{
+		"from":      "",
+		"type":      file.Type,
+		"ext":       fileExt,
+		"url":       "",
+		"cloud_url": downloadURL,
+	}
+	jsonData, err := json.Marshal(contentMap)
+	if err != nil {
+		return nil, fmt.Errorf("内容序列化失败: %v", err)
+	}
+
+	// 创建文件内容记录
+	fileContent := &gorm_gen.FileContent{
+		Fid:       id,
+		Content:   string(jsonData),
+		Text:      text,
+		Size:      size,
+		Userid:    int64(user.Userid),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	// 使用事务保存内容和更新文件
+	err = query.Q.Transaction(func(tx *query.Query) error {
+		// 保存文件内容
+		if err := tx.FileContent.Create(fileContent); err != nil {
+			return fmt.Errorf("创建文件内容记录失败: %v", err)
+		}
+
+		// 更新文件大小和扩展名
+		file.Size = size
+		file.Ext = fileExt
+		if err := tx.File.Save(file); err != nil {
+			return fmt.Errorf("更新文件记录失败: %v", err)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &common.FileContent{
+		ID:        fileContent.ID,
+		Fid:       fileContent.Fid,
+		Content:   fileContent.Content,
+		Text:      fileContent.Text,
+		Size:      fileContent.Size,
+		Userid:    fileContent.Userid,
+		CreatedAt: fileContent.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt: fileContent.UpdatedAt.Format("2006-01-02 15:04:05"),
+	}, nil
+}

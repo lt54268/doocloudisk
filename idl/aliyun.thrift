@@ -68,8 +68,8 @@ struct OfficeUploadResp {
 }
 
 struct SaveReq {
-    1: string Id (api.query="id"); 
-    2: string Content (api.query="content");
+    1: i32 Id (api.json="id"); 
+    2: string Content (api.json="content");
 }
 
 struct SaveResp {

@@ -100,15 +100,66 @@ func OfficeUpload(ctx context.Context, c *app.RequestContext) {
 func Save(ctx context.Context, c *app.RequestContext) {
 	var err error
 	var req aliyun.SaveReq
-	err = c.BindAndValidate(&req)
-	if err != nil {
-		c.String(consts.StatusBadRequest, err.Error())
+
+	// 打印请求信息
+	log.Printf("Save request received")
+	log.Printf("Request headers: %v", c.Request.Header.String())
+	log.Printf("Request method: %s", string(c.Request.Method()))
+	log.Printf("Request URI: %s", string(c.Request.URI().String()))
+	
+	// 获取并打印原始请求体
+	rawBody := c.Request.Body()
+	log.Printf("Raw request body: %s", string(rawBody))
+
+	// 手动解析请求体
+	var rawReq struct {
+		ID      int    `json:"id"`
+		Content string `json:"content"`
+	}
+	if err := json.Unmarshal(rawBody, &rawReq); err != nil {
+		log.Printf("Error parsing raw request: %v", err)
+		c.JSON(consts.StatusBadRequest, &aliyun.SaveResp{
+			Ret: 0,
+			Msg: "无效的请求格式",
+		})
 		return
 	}
 
-	resp := new(aliyun.SaveResp)
+	// 手动设置请求参数
+	req.Id = int32(rawReq.ID)
+	req.Content = rawReq.Content
 
-	c.JSON(consts.StatusOK, resp)
+	log.Printf("Parsed request: id=%d, content=%s", req.Id, req.Content)
+
+	// 获取认证用户
+	user, err := service.GetUserInfo(c.GetHeader("Token"))
+	if err != nil {
+		log.Printf("Auth error: %v", err)
+		c.JSON(consts.StatusUnauthorized, &aliyun.SaveResp{
+			Ret: 0,
+			Msg: "未授权访问",
+		})
+		return
+	}
+
+	log.Printf("User authenticated: userid=%d", user.Userid)
+
+	// 保存文件内容
+	fileContent, err := service.SaveContent(user, int64(req.Id), req.Content)
+	if err != nil {
+		log.Printf("Save content error: %v", err)
+		c.JSON(consts.StatusInternalServerError, &aliyun.SaveResp{
+			Ret: 0,
+			Msg: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(consts.StatusOK, &aliyun.SaveResp{
+		Ret:  1,
+		Msg:  "保存成功",
+		Data: fileContent,
+	})
 }
 
 // Download .

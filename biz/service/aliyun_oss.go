@@ -122,6 +122,13 @@ func (u *OssUploader) Upload(file multipart.File, objectName string, pid int64) 
 func (u *OssUploader) ReaderUpload(file io.ReadCloser, objectName string) (int64, error) {
 	log.Printf("开始上传文件到路径: %s", objectName)
 
+	// 检查必要的环境变量
+	if config.OssAccessKeyId == "" || config.OssAccessKeySecret == "" || config.OssRegion == "" || config.OssBucket == "" {
+		log.Printf("OSS 配置错误: AccessKeyId=%s, Region=%s, Bucket=%s", 
+			config.OssAccessKeyId, config.OssRegion, config.OssBucket)
+		return 0, fmt.Errorf("OSS configuration is incomplete. Please check your environment variables")
+	}
+
 	cfg := oss.LoadDefaultConfig().
 		WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
 			config.OssAccessKeyId,
@@ -137,6 +144,8 @@ func (u *OssUploader) ReaderUpload(file io.ReadCloser, objectName string) (int64
 		Key:    oss.Ptr(objectName),
 		Body:   file,
 	}
+
+	log.Printf("正在上传文件到 OSS: bucket=%s, key=%s", config.OssBucket, objectName)
 
 	// 上传文件
 	_, err := client.PutObject(context.TODO(), request)
