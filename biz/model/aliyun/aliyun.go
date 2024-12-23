@@ -1665,9 +1665,9 @@ func (p *SaveReq) String() string {
 }
 
 type SaveResp struct {
-	Ret  int8                `thrift:"ret,1" form:"ret" json:"ret" query:"ret"`
-	Msg  string              `thrift:"msg,2" form:"msg" json:"msg" query:"msg"`
-	Data *common.FileContent `thrift:"Data,3" form:"Data" json:"Data" query:"Data"`
+	Ret  int8                  `thrift:"ret,1" form:"ret" json:"ret" query:"ret"`
+	Msg  string                `thrift:"msg,2" form:"msg" json:"msg" query:"msg"`
+	Data []*common.FileContent `thrift:"data,3" form:"data" json:"data" query:"data"`
 }
 
 func NewSaveResp() *SaveResp {
@@ -1685,23 +1685,14 @@ func (p *SaveResp) GetMsg() (v string) {
 	return p.Msg
 }
 
-var SaveResp_Data_DEFAULT *common.FileContent
-
-func (p *SaveResp) GetData() (v *common.FileContent) {
-	if !p.IsSetData() {
-		return SaveResp_Data_DEFAULT
-	}
+func (p *SaveResp) GetData() (v []*common.FileContent) {
 	return p.Data
 }
 
 var fieldIDToName_SaveResp = map[int16]string{
 	1: "ret",
 	2: "msg",
-	3: "Data",
-}
-
-func (p *SaveResp) IsSetData() bool {
-	return p.Data != nil
+	3: "data",
 }
 
 func (p *SaveResp) Read(iprot thrift.TProtocol) (err error) {
@@ -1740,7 +1731,7 @@ func (p *SaveResp) Read(iprot thrift.TProtocol) (err error) {
 				goto SkipFieldError
 			}
 		case 3:
-			if fieldTypeId == thrift.STRUCT {
+			if fieldTypeId == thrift.LIST {
 				if err = p.ReadField3(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -1799,8 +1790,23 @@ func (p *SaveResp) ReadField2(iprot thrift.TProtocol) error {
 	return nil
 }
 func (p *SaveResp) ReadField3(iprot thrift.TProtocol) error {
-	_field := common.NewFileContent()
-	if err := _field.Read(iprot); err != nil {
+	_, size, err := iprot.ReadListBegin()
+	if err != nil {
+		return err
+	}
+	_field := make([]*common.FileContent, 0, size)
+	values := make([]common.FileContent, size)
+	for i := 0; i < size; i++ {
+		_elem := &values[i]
+		_elem.InitDefault()
+
+		if err := _elem.Read(iprot); err != nil {
+			return err
+		}
+
+		_field = append(_field, _elem)
+	}
+	if err := iprot.ReadListEnd(); err != nil {
 		return err
 	}
 	p.Data = _field
@@ -1879,10 +1885,18 @@ WriteFieldEndError:
 }
 
 func (p *SaveResp) writeField3(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("Data", thrift.STRUCT, 3); err != nil {
+	if err = oprot.WriteFieldBegin("data", thrift.LIST, 3); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := p.Data.Write(oprot); err != nil {
+	if err := oprot.WriteListBegin(thrift.STRUCT, len(p.Data)); err != nil {
+		return err
+	}
+	for _, v := range p.Data {
+		if err := v.Write(oprot); err != nil {
+			return err
+		}
+	}
+	if err := oprot.WriteListEnd(); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {

@@ -75,7 +75,7 @@ struct SaveReq {
 struct SaveResp {
     1: i8 ret;
     2: string msg;
-    3: common.FileContent Data;
+    3: list<common.FileContent> data;
 }
 
 struct DownloadReq {

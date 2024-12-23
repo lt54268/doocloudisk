@@ -14,6 +14,7 @@ import (
 
 	"github.com/cloudisk/biz/dal/query"
 	aliyun "github.com/cloudisk/biz/model/aliyun"
+	"github.com/cloudisk/biz/model/common"
 	"github.com/cloudisk/biz/service"
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
@@ -101,15 +102,8 @@ func Save(ctx context.Context, c *app.RequestContext) {
 	var err error
 	var req aliyun.SaveReq
 
-	// 打印请求信息
-	log.Printf("Save request received")
-	log.Printf("Request headers: %v", c.Request.Header.String())
-	log.Printf("Request method: %s", string(c.Request.Method()))
-	log.Printf("Request URI: %s", string(c.Request.URI().String()))
-	
 	// 获取并打印原始请求体
 	rawBody := c.Request.Body()
-	log.Printf("Raw request body: %s", string(rawBody))
 
 	// 手动解析请求体
 	var rawReq struct {
@@ -131,18 +125,7 @@ func Save(ctx context.Context, c *app.RequestContext) {
 
 	log.Printf("Parsed request: id=%d, content=%s", req.Id, req.Content)
 
-	// 获取认证用户
-	user, err := service.GetUserInfo(c.GetHeader("Token"))
-	if err != nil {
-		log.Printf("Auth error: %v", err)
-		c.JSON(consts.StatusUnauthorized, &aliyun.SaveResp{
-			Ret: 0,
-			Msg: "未授权访问",
-		})
-		return
-	}
-
-	log.Printf("User authenticated: userid=%d", user.Userid)
+	user, _ := service.GetUserInfo(c.GetHeader("Token"))
 
 	// 保存文件内容
 	fileContent, err := service.SaveContent(user, int64(req.Id), req.Content)
@@ -154,12 +137,13 @@ func Save(ctx context.Context, c *app.RequestContext) {
 		})
 		return
 	}
+	resp := new(aliyun.SaveResp)
+	resp.Ret = 1
+	resp.Msg = "保存成功"
+	resp.Data = []*common.FileContent{fileContent}
 
-	c.JSON(consts.StatusOK, &aliyun.SaveResp{
-		Ret:  1,
-		Msg:  "保存成功",
-		Data: fileContent,
-	})
+	c.JSON(consts.StatusOK, resp)
+
 }
 
 // Download .

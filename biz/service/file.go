@@ -514,8 +514,8 @@ func Upload(user *User, pid int, webkitRelativePath string, overwrite bool, file
 		Share:     newfile.Share,
 		Pshare:    newfile.Pshare,
 		CreatedID: newfile.CreatedID,
-		CreatedAt: newfile.CreatedAt.Format("YYYY-mm-dd HH:MM:SS"),
-		UpdatedAt: newfile.UpdatedAt.Format("YYYY-mm-dd HH:MM:SS"),
+		CreatedAt: newfile.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt: newfile.UpdatedAt.Format("2006-01-02 15:04:05"),
 		FullName:  fullName,
 		Overwrite: B2i(overwrite),
 	}
@@ -635,8 +635,8 @@ func Io_Upload(user *User, fileID int, webkitRelativePath string, overwrite bool
 		Share:     existingFile.Share,
 		Pshare:    existingFile.Pshare,
 		CreatedID: existingFile.CreatedID,
-		CreatedAt: existingFile.CreatedAt.Format("YYYY-mm-dd HH:MM:SS"),
-		UpdatedAt: existingFile.UpdatedAt.Format("YYYY-mm-dd HH:MM:SS"),
+		CreatedAt: existingFile.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt: existingFile.UpdatedAt.Format("2006-01-02 15:04:05"),
 		FullName:  fullName,
 		Overwrite: B2i(overwrite),
 	}
@@ -996,6 +996,21 @@ func SaveContent(user *User, id int64, content string) (*common.FileContent, err
 		return nil, fmt.Errorf("不支持的文件类型: %s", file.Type)
 	}
 
+	// 先更新文件扩展名
+	file.Ext = fileExt
+	if err := query.Q.File.Save(file); err != nil {
+		return nil, fmt.Errorf("更新文件扩展名失败: %v", err)
+	}
+
+	// 添加延时，确保数据库更新完成
+	time.Sleep(time.Millisecond * 500)
+
+	// 刷新文件信息以获取最新的文件名和后缀
+	file, err = query.Q.File.Where(query.File.ID.Eq(id)).First()
+	if err != nil {
+		return nil, fmt.Errorf("刷新文件信息失败: %v", err)
+	}
+
 	// 构建文件路径
 	paths := []string{}
 	if file.Pids != "" {
@@ -1072,7 +1087,6 @@ func SaveContent(user *User, id int64, content string) (*common.FileContent, err
 
 		// 更新文件大小和扩展名
 		file.Size = size
-		file.Ext = fileExt
 		if err := tx.File.Save(file); err != nil {
 			return fmt.Errorf("更新文件记录失败: %v", err)
 		}
