@@ -38,7 +38,11 @@ func Upload(ctx context.Context, c *app.RequestContext) {
 	file := form.File["files"][0]
 	pid, _ := strconv.Atoi(req.GetPid())
 	cover, _ := strconv.ParseBool(req.GetCover())
-	webkitRelativePath := form.Value["webkitRelativePath"][0]
+	
+	webkitRelativePath := ""
+	if paths, exists := form.Value["webkitRelativePath"]; exists && len(paths) > 0 {
+		webkitRelativePath = paths[0]
+	}
 	log.Printf("webkitRelativePath: %s", webkitRelativePath)
 
 	log.Printf("开始上传文件: %s", file.Filename)

@@ -421,19 +421,6 @@ func Upload(user *User, pid int, webkitRelativePath string, overwrite bool, file
 	_file_open, _ := file.Open()
 	defer _file_open.Close()
 
-	uploader := getCloudUploader()
-
-	// 构建上传路径
-	uploadPath := file.Filename
-	if webkitRelativePath != "" {
-		uploadPath = webkitRelativePath
-	}
-
-	contentLength, err := uploader.Upload(_file_open, uploadPath, int64(pid))
-	if err != nil {
-		return nil, err
-	}
-
 	filetype := getFileType(file.Filename)
 	_file := gorm_gen.File{
 		Pid:       current_pid,
@@ -442,7 +429,6 @@ func Upload(user *User, pid int, webkitRelativePath string, overwrite bool, file
 		Ext:       getFileNameExt(file.Filename),
 		Userid:    user_id,
 		CreatedID: int64(user.Userid),
-		Size:      contentLength,
 	}
 
 	var newfile *gorm_gen.File
@@ -456,7 +442,25 @@ func Upload(user *User, pid int, webkitRelativePath string, overwrite bool, file
 	if newfile == nil {
 		overwrite = false
 		newfile = &_file
+		if err := HandleDuplicateName(newfile); err != nil {
+			return nil, fmt.Errorf("处理同名文件失败: %v", err)
+		}
 	}
+
+	uploader := getCloudUploader()
+
+	// 构建上传路径
+	uploadPath := newfile.Name + "." + newfile.Ext
+	if webkitRelativePath != "" {
+		uploadPath = webkitRelativePath
+	}
+
+	contentLength, err := uploader.Upload(_file_open, uploadPath, int64(pid))
+	if err != nil {
+		return nil, err
+	}
+
+	newfile.Size = contentLength
 
 	// 保存文件记录
 	err = query.Q.Transaction(func(tx *query.Query) error {
